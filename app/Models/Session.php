@@ -13,8 +13,9 @@ class Session extends Model
     protected $fillable = [
         'programme_id',
         'date_session',
-        'heure_debut',
-        'heure_fin',
+        'heure_debut', // kept temporarily for migration safety
+        'heure_fin',   // kept temporarily for migration safety
+        'time_block_id',
         'lieu',
         'created_by',
     ];
@@ -31,6 +32,14 @@ class Session extends Model
     public function programme(): BelongsTo
     {
         return $this->belongsTo(Programme::class);
+    }
+
+    /**
+     * Une session appartient a un time block
+     */
+    public function timeBlock(): BelongsTo
+    {
+        return $this->belongsTo(TimeBlock::class);
     }
 
     /**

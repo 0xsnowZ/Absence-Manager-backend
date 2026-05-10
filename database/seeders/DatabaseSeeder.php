@@ -24,5 +24,7 @@ class DatabaseSeeder extends Seeder
 
         // Seed type absences
         $this->call(TypeAbsenceSeeder::class);
+        // Seed time blocks
+        $this->call(\Database\Seeders\TimeBlockSeeder::class);
     }
 }
