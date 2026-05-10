@@ -28,7 +28,7 @@ class StagiaireController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'matricule' => 'required|integer|unique:stagiaires',
+            'matricule' => 'required|numeric|unique:stagiaires',
             'nom' => 'required|string',
             'prenom' => 'required|string',
             'sexe' => 'nullable|string|max:1',
@@ -63,7 +63,7 @@ class StagiaireController extends Controller
     public function update(Request $request, Stagiaire $stagiaire)
     {
         $validated = $request->validate([
-            'matricule' => 'sometimes|integer|unique:stagiaires,matricule,' . $stagiaire->id,
+            'matricule' => 'sometimes|numeric|unique:stagiaires,matricule,' . $stagiaire->id,
             'nom' => 'sometimes|string',
             'prenom' => 'sometimes|string',
             'sexe' => 'nullable|string|max:1',
@@ -165,7 +165,7 @@ class StagiaireController extends Controller
     {
         $validated = $request->validate([
             'stagiaires' => 'required|array',
-            'stagiaires.*.matricule' => 'required|integer',
+            'stagiaires.*.matricule' => 'required|numeric',
             'stagiaires.*.nom' => 'required|string',
             'stagiaires.*.prenom' => 'required|string',
             'stagiaires.*.sexe' => 'nullable|string',

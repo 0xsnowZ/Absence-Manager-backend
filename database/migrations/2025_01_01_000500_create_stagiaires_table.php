@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('stagiaires', function (Blueprint $table) {
             $table->id();
-            $table->integer('matricule')->unique();
+            $table->unsignedBigInteger('matricule')->unique();
             $table->string('nom');
             $table->string('prenom');
             $table->char('sexe', 1)->nullable();
