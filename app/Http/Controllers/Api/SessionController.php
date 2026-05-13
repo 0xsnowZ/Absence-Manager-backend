@@ -30,13 +30,13 @@ class SessionController extends Controller
     {
         // Prefer `time_block_id` over raw times. Keep heure_debut/heure_fin optional for migration safety.
         $validated = $request->validate([
-            'programme_id' => 'required|exists:programmes,id',
+            'classe_id'    => 'required|exists:classes,id',
             'date_session' => 'required|date',
             'time_block_id' => 'nullable|exists:time_blocks,id',
-            'heure_debut' => 'nullable|date_format:H:i',
-            'heure_fin' => 'nullable|date_format:H:i',
-            'lieu' => 'nullable|string',
-            'created_by' => 'nullable|string',
+            'heure_debut'  => 'nullable|date_format:H:i',
+            'heure_fin'    => 'nullable|date_format:H:i',
+            'lieu'         => 'nullable|string',
+            'created_by'   => 'nullable|string',
         ]);
 
         $session = Session::create($validated);
@@ -67,7 +67,7 @@ class SessionController extends Controller
     public function update(Request $request, Session $session)
     {
         $validated = $request->validate([
-            'programme_id' => 'sometimes|exists:programmes,id',
+            'classe_id'    => 'sometimes|exists:classes,id',
             'date_session' => 'sometimes|date',
             'time_block_id' => 'nullable|exists:time_blocks,id',
             'heure_debut' => 'nullable|date_format:H:i',

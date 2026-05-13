@@ -28,7 +28,7 @@ class AttendanceController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'session_id' => 'required|exists:sessions,id',
+            'session_id' => 'required|exists:seances,id',
             'stagiaire_id' => 'required|exists:stagiaires,id',
             'type_absence_id' => 'required|exists:type_absences,id',
             'justification' => 'nullable|string',
@@ -100,7 +100,7 @@ class AttendanceController extends Controller
     public function bulk(Request $request)
     {
         $validated = $request->validate([
-            'session_id' => 'required|exists:sessions,id',
+            'session_id' => 'required|exists:seances,id',
             'recorded_by' => 'nullable|string',
             'attendances' => 'required|array',
             'attendances.*.stagiaire_id' => 'required|exists:stagiaires,id',
@@ -235,7 +235,7 @@ class AttendanceController extends Controller
         $attendances = $query->get();
 
         $stats = [];
-        foreach ($attendances->groupBy(function ($a) { return $a->session->programme_id; }) as $programmeId => $records) {
+        foreach ($attendances->groupBy(function ($a) { return $a->session->classe_id; }) as $programmeId => $records) {
             $programme = $records->first()->session->programme;
 
             $filtered = $records;

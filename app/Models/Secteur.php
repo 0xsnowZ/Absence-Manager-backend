@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 
 class Secteur extends Model
 {
@@ -22,5 +23,10 @@ class Secteur extends Model
     public function filieres(): HasMany
     {
         return $this->hasMany(Filiere::class);
+    }
+
+    public function programmes(): HasManyThrough
+    {
+        return $this->hasManyThrough(Programme::class, Filiere::class, 'secteur_id', 'filiere_id');
     }
 }

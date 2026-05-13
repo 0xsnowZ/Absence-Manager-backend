@@ -16,6 +16,7 @@ class Stagiaire extends Model
         'prenom',
         'sexe',
         'date_naissance',
+        'lieu_naissance',
         'cin',
         'telephone',
     ];
@@ -39,7 +40,7 @@ class Stagiaire extends Model
      */
     public function programmes(): BelongsToMany
     {
-        return $this->belongsToMany(Programme::class, 'inscriptions');
+        return $this->belongsToMany(Programme::class, 'inscriptions', 'stagiaire_id', 'classe_id');
     }
 
     /**

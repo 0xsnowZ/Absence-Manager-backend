@@ -36,7 +36,7 @@ class User extends Authenticatable
      */
     public function programmes(): BelongsToMany
     {
-        return $this->belongsToMany(Programme::class, 'user_programmes');
+        return $this->belongsToMany(Programme::class, 'user_classes', 'user_id', 'classe_id');
     }
 
     /**

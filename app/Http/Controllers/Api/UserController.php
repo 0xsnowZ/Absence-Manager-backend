@@ -42,7 +42,7 @@ class UserController extends Controller
             'password'       => 'required|string|min:6',
             'role'           => ['required', Rule::in(['admin', 'prof'])],
             'programme_ids'  => 'nullable|array',
-            'programme_ids.*'=> 'exists:programmes,id',
+            'programme_ids.*'=> 'exists:classes,id',
         ]);
 
         $user = User::create([
@@ -91,7 +91,7 @@ class UserController extends Controller
             'password'       => 'sometimes|string|min:6',
             'role'           => ['sometimes', Rule::in(['admin', 'prof'])],
             'programme_ids'  => 'nullable|array',
-            'programme_ids.*'=> 'exists:programmes,id',
+            'programme_ids.*'=> 'exists:classes,id',
         ]);
 
         if (isset($validated['password'])) {

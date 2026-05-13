@@ -6,32 +6,25 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
     public function up(): void
     {
-        if (!Schema::hasTable('sessions')) {
-            Schema::create('sessions', function (Blueprint $table) {
-                $table->id();
-                $table->foreignId('programme_id')->constrained('programmes')->onDelete('cascade');
-                $table->date('date_session');
-                $table->time('heure_debut')->nullable();
-                $table->time('heure_fin')->nullable();
-                $table->string('lieu')->nullable();
-                $table->string('created_by')->nullable();
-                $table->timestamps();
-                $table->index('programme_id');
-                $table->index('date_session');
-            });
-        }
+        Schema::create('seances', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('classe_id')->constrained('classes')->onDelete('cascade');
+            $table->date('date_session');
+            $table->time('heure_debut')->nullable();
+            $table->time('heure_fin')->nullable();
+            $table->foreignId('time_block_id')->nullable()->constrained('time_blocks')->nullOnDelete();
+            $table->string('lieu')->nullable();
+            $table->string('created_by')->nullable();
+            $table->timestamps();
+            $table->index('classe_id');
+            $table->index('date_session');
+        });
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
-        Schema::dropIfExists('sessions');
+        Schema::dropIfExists('seances');
     }
 };

@@ -28,7 +28,7 @@ class ProgrammeController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'code_diplome' => 'required|string|unique:programmes',
+            'code_diplome' => 'required|string|unique:classes',
             'libelle_long' => 'nullable|string',
             'filiere_id' => 'required|exists:filieres,id',
             'niveau_id' => 'required|exists:niveau_formations,id',
@@ -65,7 +65,7 @@ class ProgrammeController extends Controller
     public function update(Request $request, Programme $programme)
     {
         $validated = $request->validate([
-            'code_diplome' => 'sometimes|string|unique:programmes,code_diplome,' . $programme->id,
+            'code_diplome' => 'sometimes|string|unique:classes,code_diplome,' . $programme->id,
             'libelle_long' => 'nullable|string',
             'filiere_id' => 'sometimes|exists:filieres,id',
             'niveau_id' => 'sometimes|exists:niveau_formations,id',

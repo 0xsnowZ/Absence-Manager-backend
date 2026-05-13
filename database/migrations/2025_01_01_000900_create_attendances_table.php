@@ -3,7 +3,6 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
-use Illuminate\Support\Facades\DB;
 
 return new class extends Migration
 {
@@ -17,7 +16,7 @@ return new class extends Migration
                 $table->id();
 
                 // use foreignId() so column type matches the referenced table's id (unsignedBigInteger)
-                $table->foreignId('session_id')->constrained('sessions')->onDelete('cascade');
+                $table->foreignId('session_id')->constrained('seances')->onDelete('cascade'); // seances = app sessions table
                 $table->foreignId('stagiaire_id')->constrained('stagiaires')->onDelete('cascade');
                 $table->foreignId('type_absence_id')->constrained('type_absences')->onDelete('cascade');
 

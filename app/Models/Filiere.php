@@ -31,6 +31,6 @@ class Filiere extends Model
      */
     public function programmes(): HasMany
     {
-        return $this->hasMany(Programme::class);
+        return $this->hasMany(Programme::class, 'filiere_id');
     }
 }

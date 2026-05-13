@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class Programme extends Model
 {
-    protected $table = 'programmes';
+    protected $table = 'classes';
 
     protected $fillable = [
         'code_diplome',
@@ -23,63 +23,42 @@ class Programme extends Model
 
     protected $casts = [
         'is_cds' => 'boolean',
-        'annee' => 'integer',
+        'annee'  => 'integer',
         'saison' => 'integer',
     ];
 
     public $timestamps = true;
 
-    /**
-     * Un programme appartient a une filiere
-     */
     public function filiere(): BelongsTo
     {
         return $this->belongsTo(Filiere::class);
     }
 
-    /**
-     * Un programme appartient a un niveau
-     */
     public function niveau(): BelongsTo
     {
         return $this->belongsTo(NiveauFormation::class, 'niveau_id');
     }
 
-    /**
-     * Un programme a plusieurs sessions
-     */
     public function sessions(): HasMany
     {
-        return $this->hasMany(Session::class);
+        return $this->hasMany(Session::class, 'classe_id');
     }
 
-    /**
-     * Un programme a plusieurs inscriptions
-     */
     public function inscriptions(): HasMany
     {
-        return $this->hasMany(Inscription::class);
+        return $this->hasMany(Inscription::class, 'classe_id');
     }
 
-    /**
-     * Un programme a plusieurs stagiaires (via inscriptions)
-     */
     public function stagiaires(): BelongsToMany
     {
-        return $this->belongsToMany(Stagiaire::class, 'inscriptions');
+        return $this->belongsToMany(Stagiaire::class, 'inscriptions', 'classe_id', 'stagiaire_id');
     }
 
-    /**
-     * Scope: obtenir les programmes d'une saison
-     */
     public function scopeBySaison($query, $saison)
     {
         return $query->where('saison', $saison);
     }
 
-    /**
-     * Scope: obtenir les programmes par code diplome
-     */
     public function scopeByCodeDiplome($query, $codeDiplome)
     {
         return $query->where('code_diplome', $codeDiplome);

@@ -8,18 +8,18 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('user_programmes', function (Blueprint $table) {
+        Schema::create('user_classes', function (Blueprint $table) {
             $table->id();
             $table->foreignId('user_id')->constrained('users')->onDelete('cascade');
-            $table->foreignId('programme_id')->constrained('programmes')->onDelete('cascade');
+            $table->foreignId('classe_id')->constrained('classes')->onDelete('cascade');
             $table->timestamps();
 
-            $table->unique(['user_id', 'programme_id']);
+            $table->unique(['user_id', 'classe_id']);
         });
     }
 
     public function down(): void
     {
-        Schema::dropIfExists('user_programmes');
+        Schema::dropIfExists('user_classes');
     }
 };

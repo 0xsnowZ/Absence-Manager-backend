@@ -11,7 +11,7 @@ class Inscription extends Model
 
     protected $fillable = [
         'stagiaire_id',
-        'programme_id',
+        'classe_id',
         'date_inscription',
         'date_dossier_complet',
     ];
@@ -36,6 +36,6 @@ class Inscription extends Model
      */
     public function programme(): BelongsTo
     {
-        return $this->belongsTo(Programme::class);
+        return $this->belongsTo(Programme::class, 'classe_id');
     }
 }

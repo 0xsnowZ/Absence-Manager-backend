@@ -1,10 +1,10 @@
 <?php
 
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\AttendanceController;
 use App\Http\Controllers\Api\ProgrammeController;
+use App\Http\Controllers\Api\SecteurController;
 use App\Http\Controllers\Api\SessionController;
 use App\Http\Controllers\Api\StagiaireController;
 use App\Http\Controllers\Api\TimeBlockController;
@@ -20,11 +20,16 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/logout', [AuthController::class, 'logout']);
     Route::get('/me', [AuthController::class, 'me']);
 
-    // Time blocks (read-only)
+    // Time blocks
     Route::get('/time-blocks', [TimeBlockController::class, 'index']);
 
-    // Users (admin only in practice — enforce in controller)
+    // Users
     Route::apiResource('users', UserController::class);
+
+    // Secteurs
+    Route::get('secteurs', [SecteurController::class, 'index']);
+    Route::get('secteurs/{secteur}/filieres', [SecteurController::class, 'filieres']);
+    Route::get('secteurs/{secteur}/programmes', [SecteurController::class, 'programmes']);
 
     // Stagiaires
     Route::apiResource('stagiaires', StagiaireController::class);

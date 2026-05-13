@@ -8,13 +8,13 @@ use Illuminate\Http\Request;
 
 class StagiaireController extends Controller
 {
-    /**
-     * Get all stagiaires
-     */
     public function index(Request $request)
     {
-        $perPage = $request->query('per_page', 15);
-        $stagiaires = Stagiaire::paginate($perPage);
+        $perPage = min((int) $request->query('per_page', 200), 500);
+        $stagiaires = Stagiaire::with([
+            'programmes:id,code_diplome,libelle_long,filiere_id',
+            'programmes.filiere:id,code',
+        ])->paginate($perPage);
 
         return response()->json([
             'success' => true,
@@ -22,19 +22,17 @@ class StagiaireController extends Controller
         ]);
     }
 
-    /**
-     * Create a new stagiaire
-     */
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'matricule' => 'required|numeric|unique:stagiaires',
-            'nom' => 'required|string',
-            'prenom' => 'required|string',
-            'sexe' => 'nullable|string|max:1',
-            'date_naissance' => 'nullable|date',
-            'cin' => 'nullable|unique:stagiaires',
-            'telephone' => 'nullable|string',
+            'matricule'       => 'required|numeric|unique:stagiaires',
+            'nom'             => 'required|string',
+            'prenom'          => 'required|string',
+            'sexe'            => 'nullable|string|max:1',
+            'date_naissance'  => 'nullable|date',
+            'lieu_naissance'  => 'nullable|string',
+            'cin'             => 'nullable|unique:stagiaires',
+            'telephone'       => 'nullable|string',
         ]);
 
         $stagiaire = Stagiaire::create($validated);
@@ -42,34 +40,29 @@ class StagiaireController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Stagiaire créé avec succès',
-            'data' => $stagiaire,
+            'data'    => $stagiaire,
         ], 201);
     }
 
-    /**
-     * Get a specific stagiaire
-     */
     public function show(Stagiaire $stagiaire)
     {
         return response()->json([
             'success' => true,
-            'data' => $stagiaire,
+            'data'    => $stagiaire,
         ]);
     }
 
-    /**
-     * Update a stagiaire
-     */
     public function update(Request $request, Stagiaire $stagiaire)
     {
         $validated = $request->validate([
-            'matricule' => 'sometimes|numeric|unique:stagiaires,matricule,' . $stagiaire->id,
-            'nom' => 'sometimes|string',
-            'prenom' => 'sometimes|string',
-            'sexe' => 'nullable|string|max:1',
+            'matricule'      => "sometimes|numeric|unique:stagiaires,matricule,{$stagiaire->id}",
+            'nom'            => 'sometimes|string',
+            'prenom'         => 'sometimes|string',
+            'sexe'           => 'nullable|string|max:1',
             'date_naissance' => 'nullable|date',
-            'cin' => 'nullable|unique:stagiaires,cin,' . $stagiaire->id,
-            'telephone' => 'nullable|string',
+            'lieu_naissance' => 'nullable|string',
+            'cin'            => "nullable|unique:stagiaires,cin,{$stagiaire->id}",
+            'telephone'      => 'nullable|string',
         ]);
 
         $stagiaire->update($validated);
@@ -77,13 +70,10 @@ class StagiaireController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Stagiaire mis à jour avec succès',
-            'data' => $stagiaire,
+            'data'    => $stagiaire,
         ]);
     }
 
-    /**
-     * Delete a stagiaire
-     */
     public function destroy(Stagiaire $stagiaire)
     {
         $stagiaire->delete();
@@ -94,89 +84,71 @@ class StagiaireController extends Controller
         ]);
     }
 
-    /**
-     * Get programmes of a stagiaire
-     */
     public function programmes(Stagiaire $stagiaire)
     {
-        $programmes = $stagiaire->programmes()->get();
-
         return response()->json([
             'success' => true,
-            'data' => $programmes,
+            'data'    => $stagiaire->programmes()->get(),
         ]);
     }
 
-    /**
-     * Get attendance statistics for a stagiaire
-     */
     public function attendanceStats(Stagiaire $stagiaire, Request $request)
     {
-        $saison = $request->query('saison');
-        $programmeId = $request->query('programme_id');
+        $saison      = $request->query('saison');
+        $classeId = $request->query('classe_id');
 
         $attendances = $stagiaire->attendances()
-            ->with(['session' => function ($q) {
-                $q->where('date_session', '>=', now()->subYear());
-            }])
+            ->with(['session' => fn ($q) => $q->where('date_session', '>=', now()->subYear())])
             ->get();
 
         if ($saison) {
-            $attendances = $attendances->filter(function ($a) use ($saison) {
-                return $a->session->programme->saison == $saison;
-            });
+            $attendances = $attendances->filter(
+                fn ($a) => $a->session->programme->saison == $saison
+            );
         }
 
-        if ($programmeId) {
-            $attendances = $attendances->filter(function ($a) use ($programmeId) {
-                return $a->session->programme_id == $programmeId;
-            });
+        if ($classeId) {
+            $attendances = $attendances->filter(
+                fn ($a) => $a->session->classe_id == $classeId
+            );
         }
 
         $totalSessions = $attendances->count();
-        $presents = $attendances->filter(function ($a) {
-            return $a->typeAbsence->code === 'PRESENT';
-        })->count();
-        $absents = $attendances->filter(function ($a) {
-            return $a->typeAbsence->code === 'ABSENT';
-        })->count();
-        $justified = $attendances->filter(function ($a) {
-            return !is_null($a->justification);
-        })->count();
+        $presents      = $attendances->filter(fn ($a) => $a->typeAbsence->code === 'PRESENT')->count();
+        $absents       = $attendances->filter(fn ($a) => $a->typeAbsence->code === 'ABSENT')->count();
+        $justified     = $attendances->filter(fn ($a) => $a->justification !== null)->count();
 
         $attendanceRate = $totalSessions > 0 ? ($presents / $totalSessions) * 100 : 0;
 
         return response()->json([
             'success' => true,
             'data' => [
-                'total_sessions' => $totalSessions,
-                'presents' => $presents,
-                'absents' => $absents,
-                'justified' => $justified,
+                'total_sessions'  => $totalSessions,
+                'presents'        => $presents,
+                'absents'         => $absents,
+                'justified'       => $justified,
                 'attendance_rate' => round($attendanceRate, 2),
             ],
         ]);
     }
 
-    /**
-     * Upsert stagiaires from Excel
-     */
     public function upsertFromExcel(Request $request)
     {
         $validated = $request->validate([
-            'stagiaires' => 'required|array',
-            'stagiaires.*.matricule' => 'required|numeric',
-            'stagiaires.*.nom' => 'required|string',
-            'stagiaires.*.prenom' => 'required|string',
-            'stagiaires.*.sexe' => 'nullable|string',
-            'stagiaires.*.date_naissance' => 'nullable|date',
-            'stagiaires.*.cin' => 'nullable|string',
-            'stagiaires.*.telephone' => 'nullable|string',
+            'stagiaires'                   => 'required|array',
+            'stagiaires.*.matricule'       => 'required|numeric',
+            'stagiaires.*.nom'             => 'required|string',
+            'stagiaires.*.prenom'          => 'required|string',
+            'stagiaires.*.sexe'            => 'nullable|string',
+            'stagiaires.*.date_naissance'  => 'nullable|date',
+            'stagiaires.*.lieu_naissance'  => 'nullable|string',
+            'stagiaires.*.cin'             => 'nullable|string',
+            'stagiaires.*.telephone'       => 'nullable|string',
         ]);
 
         $created = 0;
         $updated = 0;
-        $errors = 0;
+        $errors  = 0;
 
         foreach ($validated['stagiaires'] as $data) {
             try {
@@ -184,13 +156,8 @@ class StagiaireController extends Controller
                     ['matricule' => $data['matricule']],
                     $data
                 );
-
-                if ($stagiaire->wasRecentlyCreated) {
-                    $created++;
-                } else {
-                    $updated++;
-                }
-            } catch (\Exception $e) {
+                $stagiaire->wasRecentlyCreated ? $created++ : $updated++;
+            } catch (\Exception) {
                 $errors++;
             }
         }
@@ -198,11 +165,7 @@ class StagiaireController extends Controller
         return response()->json([
             'success' => true,
             'message' => "Upsert complété: $created créés, $updated mis à jour, $errors erreurs",
-            'data' => [
-                'created' => $created,
-                'updated' => $updated,
-                'errors' => $errors,
-            ],
+            'data'    => ['created' => $created, 'updated' => $updated, 'errors' => $errors],
         ]);
     }
 }

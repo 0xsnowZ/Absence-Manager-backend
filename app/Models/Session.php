@@ -8,10 +8,10 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Session extends Model
 {
-    protected $table = 'sessions';
+    protected $table = 'seances';
 
     protected $fillable = [
-        'programme_id',
+        'classe_id',
         'date_session',
         'heure_debut', // kept temporarily for migration safety
         'heure_fin',   // kept temporarily for migration safety
@@ -31,7 +31,7 @@ class Session extends Model
      */
     public function programme(): BelongsTo
     {
-        return $this->belongsTo(Programme::class);
+        return $this->belongsTo(Programme::class, 'classe_id');
     }
 
     /**
