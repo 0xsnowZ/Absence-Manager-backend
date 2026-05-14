@@ -16,7 +16,7 @@ class UserController extends Controller
      */
     public function index(Request $request)
     {
-        $query = User::with('programmes');
+        $query = User::with(['programmes.filiere.secteur']);
 
         if ($request->has('role')) {
             $query->where('role', $request->query('role'));
@@ -56,7 +56,7 @@ class UserController extends Controller
             $user->programmes()->sync($validated['programme_ids']);
         }
 
-        $user->load('programmes');
+        $user->load(['programmes.filiere.secteur']);
 
         return response()->json([
             'success' => true,
@@ -71,7 +71,7 @@ class UserController extends Controller
      */
     public function show(User $user)
     {
-        $user->load('programmes');
+        $user->load(['programmes.filiere.secteur']);
 
         return response()->json([
             'success' => true,
@@ -104,7 +104,7 @@ class UserController extends Controller
             $user->programmes()->sync($validated['programme_ids'] ?? []);
         }
 
-        $user->load('programmes');
+        $user->load(['programmes.filiere.secteur']);
 
         return response()->json([
             'success' => true,
@@ -139,17 +139,25 @@ class UserController extends Controller
     /**
      * Format user for API response.
      */
-    private function formatUser(User $user): array
+    private function formatUser($user): array
     {
         return [
             'id'          => $user->id,
             'name'        => $user->name,
             'email'       => $user->email,
             'role'        => $user->role,
-            'programmes'  => $user->programmes->map(fn($p) => [
-                'id'           => $p->id,
-                'code_diplome' => $p->code_diplome,
-                'libelle_long' => $p->libelle_long,
+            'programmes'  => $user->programmes->map(fn ($programme) => [
+                'id'           => $programme->id,
+                'code_diplome' => $programme->code_diplome,
+                'libelle_long' => $programme->libelle_long,
+                'filiere'      => $programme->filiere ? [
+                    'id'      => $programme->filiere->id,
+                    'code'    => $programme->filiere->code,
+                    'secteur' => $programme->filiere->secteur ? [
+                        'id'   => $programme->filiere->secteur->id,
+                        'code' => $programme->filiere->secteur->code,
+                    ] : null,
+                ] : null,
             ]),
         ];
     }

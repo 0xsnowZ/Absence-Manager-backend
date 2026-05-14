@@ -1,205 +1,255 @@
 # Database Schema — Trainee Attendance System
 
-This document describes the database tables, columns, primary keys, foreign keys and relationships. Use this as the schema reference when preparing Excel import files.
+This document lists the tables, columns, primary keys, foreign keys, and the main relationships in the current Laravel app.
 
----
+## Table Map
+
+Some Eloquent models use a different table name than the model class:
+
+- `Programme` model -> `classes` table
+- `Session` model -> `seances` table
+- `TimeBlock` model -> `time_blocks` table
+- `User` model -> `users` table
 
 ## Tables
 
-### `secteurs`
-- id: BIGINT UNSIGNED PK (auto-increment)
-- code: string (unique)
-- nom: string (nullable)
-- created_at, updated_at
+### `users`
+- `id`: BIGINT UNSIGNED PK, auto-increment
+- `name`: string
+- `email`: string, unique
+- `email_verified_at`: timestamp, nullable
+- `password`: string
+- `remember_token`: string, nullable
+- `created_at`, `updated_at`
+
+Extra column added by migration:
+- `role`: enum(`admin`, `prof`), default `admin`
 
 Relations:
-- `secteurs` hasMany `filieres` (filieres.secteur_id → secteurs.id)
+- `users` belongsToMany `classes` via `user_classes`
+
+---
+
+### `password_reset_tokens`
+- `email`: string, primary key
+- `token`: string
+- `created_at`: timestamp, nullable
+
+---
+
+### `sessions`  
+Laravel auth/session storage table, not the attendance session table.
+- `id`: string, primary key
+- `user_id`: BIGINT UNSIGNED, nullable, indexed
+- `ip_address`: string(45), nullable
+- `user_agent`: text, nullable
+- `payload`: longText
+- `last_activity`: integer, indexed
+
+---
+
+### `secteurs`
+- `id`: BIGINT UNSIGNED PK
+- `code`: string, unique
+- `nom`: string, nullable
+- `created_at`, `updated_at`
+
+Relations:
+- `secteurs` hasMany `filieres`
 
 ---
 
 ### `niveau_formations`
-- id: BIGINT UNSIGNED PK
-- code: string (unique)
-- nom: string (nullable)
-- created_at, updated_at
+- `id`: BIGINT UNSIGNED PK
+- `code`: string, unique
+- `nom`: string, nullable
+- `created_at`, `updated_at`
 
 Relations:
-- `niveau_formations` hasMany `programmes` (programmes.niveau_id → niveau_formations.id)
+- `niveau_formations` hasMany `classes`
 
 ---
 
 ### `filieres`
-- id: BIGINT UNSIGNED PK
-- code: string (unique)
-- nom: string
-- secteur_id: BIGINT UNSIGNED FK → `secteurs(id)`
-- created_at, updated_at
+- `id`: BIGINT UNSIGNED PK
+- `code`: string, unique
+- `nom`: string
+- `secteur_id`: BIGINT UNSIGNED FK -> `secteurs(id)`
+- `created_at`, `updated_at`
 
 Relations:
 - `filieres` belongsTo `secteurs`
-- `filieres` hasMany `programmes`
+- `filieres` hasMany `classes`
 
 ---
 
-### `programmes`
-- id: BIGINT UNSIGNED PK
-- code_diplome: string (unique)
-- libelle_long: text (nullable)
-- filiere_id: BIGINT UNSIGNED FK → `filieres(id)`
-- niveau_id: BIGINT UNSIGNED FK → `niveau_formations(id)`
-- annee: integer (nullable)
-- saison: integer (nullable)
-- is_cds: boolean (default false)
-- created_at, updated_at
+### `classes`
+This is the table used by the `Programme` model.
+- `id`: BIGINT UNSIGNED PK
+- `code_diplome`: string, unique
+- `libelle_long`: text, nullable
+- `filiere_id`: BIGINT UNSIGNED FK -> `filieres(id)`
+- `niveau_id`: BIGINT UNSIGNED FK -> `niveau_formations(id)`
+- `annee`: integer, nullable
+- `saison`: integer, nullable
+- `is_cds`: boolean, default `false`
+- `created_at`, `updated_at`
 
 Relations:
-- `programmes` belongsTo `filieres` and `niveau_formations`
-- `programmes` hasMany `sessions`
-- `programmes` hasMany `inscriptions`
-- `programmes` belongsToMany `stagiaires` via `inscriptions`
+- `classes` belongsTo `filieres`
+- `classes` belongsTo `niveau_formations`
+- `classes` hasMany `seances`
+- `classes` hasMany `inscriptions`
+- `classes` belongsToMany `users` via `user_classes`
 
 ---
 
 ### `stagiaires`
-- id: BIGINT UNSIGNED PK
-- matricule: unsigned big integer (unique)
-- nom: string
-- prenom: string
-- sexe: char(1) (nullable)
-- date_naissance: date (nullable)
-- cin: string (nullable, unique)
-- telephone: string (nullable)
-- created_at, updated_at
+- `id`: BIGINT UNSIGNED PK
+- `matricule`: BIGINT UNSIGNED, unique
+- `nom`: string
+- `prenom`: string
+- `sexe`: char(1), nullable
+- `date_naissance`: date, nullable
+- `lieu_naissance`: string, nullable
+- `cin`: string, nullable, unique
+- `telephone`: string, nullable
+- `created_at`, `updated_at`
 
 Relations:
 - `stagiaires` hasMany `inscriptions`
-- `stagiaires` belongsToMany `programmes` via `inscriptions`
+- `stagiaires` belongsToMany `classes` via `inscriptions`
 - `stagiaires` hasMany `attendances`
 
 ---
 
 ### `inscriptions`
-- id: BIGINT UNSIGNED PK
-- stagiaire_id: BIGINT UNSIGNED FK → `stagiaires(id)`
-- programme_id: BIGINT UNSIGNED FK → `programmes(id)`
-- date_inscription: date (nullable)
-- date_dossier_complet: date (nullable)
-- created_at, updated_at
-- UNIQUE(stagiaire_id, programme_id)
+- `id`: BIGINT UNSIGNED PK
+- `stagiaire_id`: BIGINT UNSIGNED FK -> `stagiaires(id)`
+- `programme_id`: BIGINT UNSIGNED FK -> `classes(id)`
+- `date_inscription`: date, nullable
+- `date_dossier_complet`: date, nullable
+- `created_at`, `updated_at`
+- unique(`stagiaire_id`, `programme_id`)
 
 Relations:
-- pivot between `stagiaires` and `programmes`
+- pivot table between `stagiaires` and `classes`
 
 ---
 
 ### `type_absences`
-- id: BIGINT UNSIGNED PK
-- code: string (unique) — e.g. PRESENT, ABSENT, EXCUSED, SICK, PERMIT, LATE, PARTIAL
-- libelle: string
-- created_at, updated_at
+- `id`: BIGINT UNSIGNED PK
+- `code`: string, unique
+- `libelle`: string
+- `created_at`, `updated_at`
 
 Relations:
 - `type_absences` hasMany `attendances`
 
 ---
 
-### `sessions`
-- id: BIGINT UNSIGNED PK
-- programme_id: BIGINT UNSIGNED FK → `programmes(id)`
-- date_session: date
-- heure_debut: time (nullable) — kept temporarily for migration safety
-- heure_fin: time (nullable) — kept temporarily for migration safety
-- time_block_id: BIGINT UNSIGNED FK (nullable) → `time_blocks(id)`
-- lieu: string (nullable)
-- created_by: string (nullable)
-- created_at, updated_at
+### `time_blocks`
+- `id`: BIGINT UNSIGNED PK
+- `code`: string, unique
+- `label`: string
+- `heure_debut`: time
+- `heure_fin`: time
+- `created_at`, `updated_at`
 
 Relations:
-- `sessions` belongsTo `programmes`
-- `sessions` belongsTo `time_blocks` (optional)
-- `sessions` hasMany `attendances`
+- `time_blocks` hasMany `seances`
 
-Notes:
-- New preferred workflow: set `time_block_id` to a fixed block and remove `heure_debut`/`heure_fin` after validation.
+Default seeded blocks:
+- `TB1` - 08:30:00 to 11:00:00
+- `TB2` - 11:00:00 to 13:15:00
+- `TB3` - 13:30:00 to 16:00:00
+- `TB4` - 16:00:00 to 18:30:00
+- `TB5` - 19:00:00 to 21:00:00
 
 ---
 
-### `time_blocks`
-- id: BIGINT UNSIGNED PK
-- code: string (unique) — e.g. `TB1`, `TB2`, ...
-- label: string — human readable (e.g. `08:30 → 11:00`)
-- heure_debut: time
-- heure_fin: time
-- created_at, updated_at
-
-Seeded blocks (default):
-1. TB1 — 08:30:00 → 11:00:00
-2. TB2 — 11:00:00 → 13:15:00
-3. TB3 — 13:30:00 → 16:00:00
-4. TB4 — 16:00:00 → 18:30:00
-5. TB5 — 19:00:00 → 21:00:00 (CDS)
+### `seances`
+This is the attendance/session table used by the `Session` model.
+- `id`: BIGINT UNSIGNED PK
+- `classe_id`: BIGINT UNSIGNED FK -> `classes(id)`
+- `date_session`: date
+- `heure_debut`: time, nullable
+- `heure_fin`: time, nullable
+- `time_block_id`: BIGINT UNSIGNED FK, nullable -> `time_blocks(id)`
+- `lieu`: string, nullable
+- `created_by`: string, nullable
+- `created_at`, `updated_at`
 
 Relations:
-- `time_blocks` hasMany `sessions`
+- `seances` belongsTo `classes`
+- `seances` belongsTo `time_blocks` (optional)
+- `seances` hasMany `attendances`
 
 ---
 
 ### `attendances`
-- id: BIGINT UNSIGNED PK
-- session_id: (unsigned integer or unsigned big integer) FK → `sessions(id)`
-- stagiaire_id: (unsigned integer or unsigned big integer) FK → `stagiaires(id)`
-- type_absence_id: (unsigned integer or unsigned big integer) FK → `type_absences(id)`
-- justification: text (nullable)
-- recorded_by: string (nullable)
-- recorded_at: datetime (nullable)
-- created_at, updated_at
-- UNIQUE(session_id, stagiaire_id)
+- `id`: BIGINT UNSIGNED PK
+- `session_id`: BIGINT UNSIGNED FK -> `seances(id)`
+- `stagiaire_id`: BIGINT UNSIGNED FK -> `stagiaires(id)`
+- `type_absence_id`: BIGINT UNSIGNED FK -> `type_absences(id)`
+- `justification`: text, nullable
+- `recorded_by`: string, nullable
+- `recorded_at`: datetime, nullable
+- `created_at`, `updated_at`
+- unique(`session_id`, `stagiaire_id`)
 
 Relations:
-- `attendances` belongsTo `sessions`, `stagiaires`, `type_absences`
+- `attendances` belongsTo `seances`
+- `attendances` belongsTo `stagiaires`
+- `attendances` belongsTo `type_absences`
 
 ---
 
-## Excel import mapping guidance
-
-- Prepare one or more Excel sheets mapped to destination tables.
-- Key sheet suggestions:
-  - `stagiaires` sheet: columns -> `matricule`, `nom`, `prenom`, `sexe`, `date_naissance`, `cin`, `telephone`
-  - `programmes` sheet: `code_diplome`, `libelle_long`, `filiere_code`, `niveau_code`, `annee`, `saison`, `is_cds`
-  - `inscriptions` sheet: `matricule`, `code_diplome` (use matricule & programme to resolve FK)
-  - `sessions` sheet: `code_diplome`, `date_session`, `time_block_code` (preferred) OR `heure_debut` + `heure_fin` (fallback), `lieu`, `created_by`
-  - `attendances` sheet: `session_identifier` (id or programme+date+block), `matricule`, `type_absence_code`, `justification`, `recorded_by`
-
-Mapping tips:
-- Use unique natural keys to resolve FKs (e.g., `matricule` for `stagiaires`, `code_diplome` for `programmes`, `code` for `time_blocks`).
-- When importing `sessions`, prefer `time_block_code` (map to `time_blocks.id`) instead of raw times.
-- Provide a small lookup sheet (`lookups`) with `time_blocks` codes if needed.
+### `personal_access_tokens`
+Laravel Sanctum token table.
+- `id`: BIGINT UNSIGNED PK
+- `tokenable_type`: string
+- `tokenable_id`: BIGINT UNSIGNED
+- `name`: text
+- `token`: string(64), unique
+- `abilities`: text, nullable
+- `last_used_at`: timestamp, nullable
+- `expires_at`: timestamp, nullable, indexed
+- `created_at`, `updated_at`
 
 ---
 
-## Importing steps (recommended)
-1. Ensure `time_blocks` table is seeded:
+### `user_classes`
+Pivot table between users and classes.
+- `id`: BIGINT UNSIGNED PK
+- `user_id`: BIGINT UNSIGNED FK -> `users(id)`
+- `classe_id`: BIGINT UNSIGNED FK -> `classes(id)`
+- `created_at`, `updated_at`
+- unique(`user_id`, `classe_id`)
 
-```bash
-php artisan db:seed --class="\\Database\\Seeders\\TimeBlockSeeder"
-```
+Relations:
+- `user_classes` belongsTo `users`
+- `user_classes` belongsTo `classes`
 
-2. Import `secteurs`, `niveau_formations`, `filieres` (in this order).
-3. Import `programmes` (link to `filieres` + `niveau_formations`).
-4. Import `stagiaires`.
-5. Import `inscriptions` (link `stagiaire` → `programme`).
-6. Import `sessions` using `time_block_code` mapped to `time_blocks.id`.
-7. Import `attendances` (use `session` id or resolved session key).
+## Import order
 
-For complex imports use a command (example) `php artisan import:stagiaires file.xlsx` and follow the project command template.
+If you are importing seed or Excel data, use this order:
 
----
+1. `secteurs`
+2. `niveau_formations`
+3. `filieres`
+4. `classes`
+5. `stagiaires`
+6. `inscriptions`
+7. `type_absences`
+8. `time_blocks`
+9. `seances`
+10. `attendances`
+11. `users` / `user_classes` if needed
 
-## Notes & best practices
-- Keep raw `heure_debut`/`heure_fin` until you validate all sessions mapped to `time_blocks`, then drop them in a safe migration.
-- Use transactions when importing bulk data and log unmatched rows for manual review.
-- Prefer `updateOrCreate` for idempotent imports to avoid duplicates.
+## Notes
 
----
-
-If you provide the Excel file(s) (or headings), I can produce a concrete mapping file or a Laravel import command skeleton to consume those sheets directly and perform FK resolution.
+- Use `classes` in code when working with the `Programme` model.
+- Use `seances` in code when working with the `Session` model.
+- Keep `heure_debut` and `heure_fin` in `seances` until all sessions are fully mapped to `time_blocks`.
+- If you need a separate table map for Excel import, I can generate a CSV/Markdown mapping section next.
