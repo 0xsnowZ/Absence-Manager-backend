@@ -25,7 +25,9 @@ return [
         env('FRONTEND_URL'),
     ],
 
-    'allowed_origins_patterns' => [],
+    'allowed_origins_patterns' => [
+        'https://abcence-manager-frontend-.*\.vercel\.app',
+    ],
 
     'allowed_headers' => ['*'],
 
