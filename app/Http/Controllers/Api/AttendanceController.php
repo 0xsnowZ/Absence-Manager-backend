@@ -4,7 +4,10 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Attendance;
+use App\Models\Programme;
+use App\Models\Session;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class AttendanceController extends Controller
 {
@@ -241,92 +244,107 @@ class AttendanceController extends Controller
 
     /**
      * Get statistics by stagiaire
+     * BUG-02: Replaced PHP-side groupBy with SQL aggregation to avoid loading all rows into memory.
+     * BUG-06: Added session.programme eager load to prevent N+1 on saison filter.
      */
     public function statsByStagiaire(Request $request)
     {
         $programmeId = $request->query('programme_id');
-        $saison = $request->query('saison');
+        $saison      = $request->query('saison');
 
-        $query = Attendance::with(['stagiaire', 'typeAbsence', 'session']);
+        // Build base query with SQL-level aggregation grouped by stagiaire
+        $query = DB::table('attendances as a')
+            ->join('stagiaires as s', 's.id', '=', 'a.stagiaire_id')
+            ->join('seances as se', 'se.id', '=', 'a.session_id')
+            ->join('type_absences as ta', 'ta.id', '=', 'a.type_absence_id')
+            ->join('classes as c', 'c.id', '=', 'se.classe_id')
+            ->select([
+                'a.stagiaire_id',
+                's.matricule',
+                's.nom',
+                's.prenom',
+                DB::raw('COUNT(a.id) as total_sessions'),
+                DB::raw("SUM(CASE WHEN ta.code = 'PRESENT' THEN 1 ELSE 0 END) as presents"),
+                DB::raw("SUM(CASE WHEN ta.code = 'ABSENT' THEN 1 ELSE 0 END) as absents"),
+                DB::raw("SUM(CASE WHEN a.justification IS NOT NULL THEN 1 ELSE 0 END) as justified"),
+            ])
+            ->groupBy('a.stagiaire_id', 's.matricule', 's.nom', 's.prenom');
 
         if ($programmeId) {
-            $query->whereHas('session', function ($q) use ($programmeId) {
-                $q->where('programme_id', $programmeId);
-            });
+            $query->where('se.classe_id', $programmeId);
         }
 
-        $attendances = $query->get();
+        if ($saison) {
+            $query->where('c.saison', $saison);
+        }
 
-        $stats = [];
-        foreach ($attendances->groupBy('stagiaire_id') as $stagiaireId => $records) {
-            $stagiaire = $records->first()->stagiaire;
+        $results = $query->get();
 
-            $filtered = $records;
-            if ($saison) {
-                $filtered = $records->filter(function ($a) use ($saison) {
-                    return $a->session->programme->saison == $saison;
-                });
-            }
-
-            if ($filtered->isEmpty()) continue;
-
-            $stats[] = [
-                'stagiaire_id' => $stagiaireId,
-                'matricule' => $stagiaire->matricule,
-                'nom' => $stagiaire->nom,
-                'prenom' => $stagiaire->prenom,
-                'total_sessions' => $filtered->count(),
-                'presents' => $filtered->filter(fn($a) => $a->typeAbsence->code === 'PRESENT')->count(),
-                'absents' => $filtered->filter(fn($a) => $a->typeAbsence->code === 'ABSENT')->count(),
-                'justified' => $filtered->filter(fn($a) => !is_null($a->justification))->count(),
-                'attendance_rate' => round(($filtered->filter(fn($a) => $a->typeAbsence->code === 'PRESENT')->count() / $filtered->count()) * 100, 2),
+        $stats = $results->map(function ($row) {
+            $total = (int) $row->total_sessions;
+            $presents = (int) $row->presents;
+            return [
+                'stagiaire_id'    => $row->stagiaire_id,
+                'matricule'       => $row->matricule,
+                'nom'             => $row->nom,
+                'prenom'          => $row->prenom,
+                'total_sessions'  => $total,
+                'presents'        => $presents,
+                'absents'         => (int) $row->absents,
+                'justified'       => (int) $row->justified,
+                'attendance_rate' => $total > 0 ? round(($presents / $total) * 100, 2) : 0,
             ];
-        }
+        });
 
         return response()->json([
             'success' => true,
-            'data' => $stats,
+            'data'    => $stats,
         ]);
     }
 
     /**
      * Get statistics by programme
+     * BUG-02: Replaced PHP-side groupBy with SQL aggregation.
      */
     public function statsByProgramme(Request $request)
     {
         $saison = $request->query('saison');
 
-        $query = Attendance::with(['session', 'typeAbsence'])
-            ->whereHas('session');
+        $query = DB::table('attendances as a')
+            ->join('seances as se', 'se.id', '=', 'a.session_id')
+            ->join('classes as c', 'c.id', '=', 'se.classe_id')
+            ->join('type_absences as ta', 'ta.id', '=', 'a.type_absence_id')
+            ->select([
+                'se.classe_id as programme_id',
+                'c.code_diplome',
+                DB::raw('COUNT(a.id) as total_records'),
+                DB::raw("SUM(CASE WHEN ta.code = 'PRESENT' THEN 1 ELSE 0 END) as presents"),
+                DB::raw("SUM(CASE WHEN ta.code = 'ABSENT' THEN 1 ELSE 0 END) as absents"),
+            ])
+            ->groupBy('se.classe_id', 'c.code_diplome');
 
-        $attendances = $query->get();
-
-        $stats = [];
-        foreach ($attendances->groupBy(function ($a) { return $a->session->classe_id; }) as $programmeId => $records) {
-            $programme = $records->first()->session->programme;
-
-            $filtered = $records;
-            if ($saison) {
-                $filtered = $records->filter(function ($a) use ($saison) {
-                    return $a->session->programme->saison == $saison;
-                });
-            }
-
-            if ($filtered->isEmpty()) continue;
-
-            $stats[] = [
-                'programme_id' => $programmeId,
-                'code_diplome' => $programme->code_diplome,
-                'total_records' => $filtered->count(),
-                'presents' => $filtered->filter(fn($a) => $a->typeAbsence->code === 'PRESENT')->count(),
-                'absents' => $filtered->filter(fn($a) => $a->typeAbsence->code === 'ABSENT')->count(),
-                'average_attendance_rate' => round(($filtered->filter(fn($a) => $a->typeAbsence->code === 'PRESENT')->count() / $filtered->count()) * 100, 2),
-            ];
+        if ($saison) {
+            $query->where('c.saison', $saison);
         }
+
+        $results = $query->get();
+
+        $stats = $results->map(function ($row) {
+            $total    = (int) $row->total_records;
+            $presents = (int) $row->presents;
+            return [
+                'programme_id'           => $row->programme_id,
+                'code_diplome'           => $row->code_diplome,
+                'total_records'          => $total,
+                'presents'               => $presents,
+                'absents'                => (int) $row->absents,
+                'average_attendance_rate' => $total > 0 ? round(($presents / $total) * 100, 2) : 0,
+            ];
+        });
 
         return response()->json([
             'success' => true,
-            'data' => $stats,
+            'data'    => $stats,
         ]);
     }
 }

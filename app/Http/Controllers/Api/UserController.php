@@ -22,11 +22,21 @@ class UserController extends Controller
             $query->where('role', $request->query('role'));
         }
 
-        $users = $query->get()->map(fn($u) => $this->formatUser($u));
+        // PERF-02: Add per_page support consistent with other controllers
+        $perPage = (int) $request->query('per_page', 100);
+        if ($perPage <= 0 || $perPage > 500) $perPage = 100;
+
+        $users = $query->paginate($perPage);
+        $formatted = $users->getCollection()->map(fn($u) => $this->formatUser($u));
 
         return response()->json([
             'success' => true,
-            'data'    => $users,
+            'data'    => $formatted,
+            'meta'    => [
+                'current_page' => $users->currentPage(),
+                'last_page'    => $users->lastPage(),
+                'total'        => $users->total(),
+            ],
         ]);
     }
 
@@ -39,7 +49,7 @@ class UserController extends Controller
         $validated = $request->validate([
             'name'           => 'required|string|max:255',
             'email'          => 'required|email|unique:users,email',
-            'password'       => 'required|string|min:6',
+            'password'       => 'required|string|min:8',  // SEC-01: raised from 6 to 8
             'role'           => ['required', Rule::in(['admin', 'prof'])],
             'programme_ids'  => 'nullable|array',
             'programme_ids.*'=> 'exists:classes,id',
@@ -88,7 +98,7 @@ class UserController extends Controller
         $validated = $request->validate([
             'name'           => 'sometimes|string|max:255',
             'email'          => ['sometimes', 'email', Rule::unique('users')->ignore($user->id)],
-            'password'       => 'sometimes|string|min:6',
+            'password'       => 'sometimes|string|min:8',  // SEC-01: raised from 6 to 8
             'role'           => ['sometimes', Rule::in(['admin', 'prof'])],
             'programme_ids'  => 'nullable|array',
             'programme_ids.*'=> 'exists:classes,id',

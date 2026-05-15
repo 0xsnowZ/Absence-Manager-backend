@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Stagiaire;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class StagiaireController extends Controller
 {
@@ -121,29 +122,31 @@ class StagiaireController extends Controller
 
     public function attendanceStats(Stagiaire $stagiaire, Request $request)
     {
-        $saison      = $request->query('saison');
+        $saison   = $request->query('saison');
         $classeId = $request->query('classe_id');
 
-        $attendances = $stagiaire->attendances()
-            ->with(['session' => fn ($q) => $q->where('date_session', '>=', now()->subYear())])
-            ->get();
+        // BUG-11: Use whereHas so the filter applies at the DB query level,
+        // not only to the eager-loaded relation (which would leave null sessions).
+        $query = $stagiaire->attendances()
+            ->whereHas('session', fn($q) => $q->where('date_session', '>=', now()->subYear()))
+            ->with(['session.programme', 'typeAbsence']);
+
+        if ($classeId) {
+            $query->whereHas('session', fn($q) => $q->where('classe_id', $classeId));
+        }
+
+        $attendances = $query->get();
 
         if ($saison) {
             $attendances = $attendances->filter(
-                fn ($a) => $a->session->programme->saison == $saison
-            );
-        }
-
-        if ($classeId) {
-            $attendances = $attendances->filter(
-                fn ($a) => $a->session->classe_id == $classeId
+                fn($a) => $a->session?->programme?->saison == $saison
             );
         }
 
         $totalSessions = $attendances->count();
-        $presents      = $attendances->filter(fn ($a) => $a->typeAbsence->code === 'PRESENT')->count();
-        $absents       = $attendances->filter(fn ($a) => $a->typeAbsence->code === 'ABSENT')->count();
-        $justified     = $attendances->filter(fn ($a) => $a->justification !== null)->count();
+        $presents      = $attendances->filter(fn($a) => $a->typeAbsence?->code === 'PRESENT')->count();
+        $absents       = $attendances->filter(fn($a) => $a->typeAbsence?->code === 'ABSENT')->count();
+        $justified     = $attendances->filter(fn($a) => $a->justification !== null)->count();
 
         $attendanceRate = $totalSessions > 0 ? ($presents / $totalSessions) * 100 : 0;
 
@@ -177,17 +180,20 @@ class StagiaireController extends Controller
         $updated = 0;
         $errors  = 0;
 
-        foreach ($validated['stagiaires'] as $data) {
-            try {
-                $stagiaire = Stagiaire::updateOrCreate(
-                    ['matricule' => $data['matricule']],
-                    $data
-                );
-                $stagiaire->wasRecentlyCreated ? $created++ : $updated++;
-            } catch (\Exception) {
-                $errors++;
+        // QA-02: Wrap in a transaction so a mid-import failure doesn't leave partial data
+        DB::transaction(function () use ($validated, &$created, &$updated, &$errors) {
+            foreach ($validated['stagiaires'] as $data) {
+                try {
+                    $stagiaire = Stagiaire::updateOrCreate(
+                        ['matricule' => $data['matricule']],
+                        $data
+                    );
+                    $stagiaire->wasRecentlyCreated ? $created++ : $updated++;
+                } catch (\Exception) {
+                    $errors++;
+                }
             }
-        }
+        });
 
         return response()->json([
             'success' => true,

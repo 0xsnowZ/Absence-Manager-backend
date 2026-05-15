@@ -199,7 +199,7 @@ class ProgrammeController extends Controller
 
         $created = [];
         foreach ($validated['sessions'] as $data) {
-            $data['programme_id'] = $programme->id;
+            $data['classe_id'] = $programme->id;
             $session = $programme->sessions()->create($data);
             $created[] = $session;
         }

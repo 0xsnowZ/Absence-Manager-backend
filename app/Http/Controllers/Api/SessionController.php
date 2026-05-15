@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Session;
 use App\Models\Programme;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class SessionController extends Controller
 {
@@ -90,12 +91,59 @@ class SessionController extends Controller
      */
     public function destroy(Session $session)
     {
+        // BUG-09: Prevent cascade-deletion of attendance records
+        if ($session->attendances()->exists()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Cette session contient des absences enregistrées. Supprimez-les d\'abord ou contactez un administrateur.',
+            ], 422);
+        }
+
         $session->delete();
 
         return response()->json([
             'success' => true,
             'message' => 'Session supprimée avec succès',
         ]);
+    }
+
+    /**
+     * Find an existing session or create a new one atomically.
+     * BUG-01 / QA-03: Prevents duplicate sessions under concurrent requests.
+     *
+     * POST /api/sessions/find-or-create
+     * Body: { classe_id, date_session, time_block_id, created_by? }
+     */
+    public function findOrCreate(Request $request)
+    {
+        $validated = $request->validate([
+            'classe_id'     => 'required|exists:classes,id',
+            'date_session'  => 'required|date',
+            'time_block_id' => 'required|exists:time_blocks,id',
+            'lieu'          => 'nullable|string',
+            'created_by'    => 'nullable|string',
+        ]);
+
+        $session = DB::transaction(function () use ($validated) {
+            return Session::firstOrCreate(
+                [
+                    'classe_id'     => $validated['classe_id'],
+                    'date_session'  => $validated['date_session'],
+                    'time_block_id' => $validated['time_block_id'],
+                ],
+                [
+                    'lieu'       => $validated['lieu'] ?? null,
+                    'created_by' => $validated['created_by'] ?? null,
+                ]
+            );
+        });
+
+        $session->load('programme');
+
+        return response()->json([
+            'success' => true,
+            'data'    => $session,
+        ], $session->wasRecentlyCreated ? 201 : 200);
     }
 
     /**
