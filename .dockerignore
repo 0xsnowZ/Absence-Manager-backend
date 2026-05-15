@@ -1,0 +1,32 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Dev / CI
+.editorconfig
+.phpunit.cache
+phpunit.xml
+tests/
+*.md
+do_this.md
+
+# Vite / Node (not needed in the PHP container)
+node_modules/
+package.json
+package-lock.json
+vite.config.js
+.npmrc
+
+# Local env — production secrets come from Render env vars
+.env
+.env.*
+
+# Already compiled by composer in the build stage
+# vendor/ is copied from the builder — do NOT exclude it here unless
+# you are excluding before the COPY in Dockerfile (we use multi-stage so it's fine)
+
+# IDE
+.idea/
+.vscode/
+*.DS_Store
