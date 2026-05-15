@@ -33,9 +33,22 @@ class StagiaireController extends Controller
             'lieu_naissance'  => 'nullable|string',
             'cin'             => 'nullable|unique:stagiaires',
             'telephone'       => 'nullable|string',
+            'programme_code'  => 'nullable|string',
         ]);
 
-        $stagiaire = Stagiaire::create($validated);
+        $stagiaire = Stagiaire::create($request->except('programme_code'));
+
+        if ($request->filled('programme_code')) {
+            $programme = \App\Models\Programme::where('code_diplome', $request->programme_code)->first();
+            if ($programme) {
+                $stagiaire->programmes()->attach($programme->id);
+            }
+        }
+        
+        $stagiaire->load([
+            'programmes:id,code_diplome,libelle_long,filiere_id',
+            'programmes.filiere:id,code',
+        ]);
 
         return response()->json([
             'success' => true,
@@ -63,9 +76,23 @@ class StagiaireController extends Controller
             'lieu_naissance' => 'nullable|string',
             'cin'            => "nullable|unique:stagiaires,cin,{$stagiaire->id}",
             'telephone'      => 'nullable|string',
+            'programme_code' => 'nullable|string',
         ]);
 
-        $stagiaire->update($validated);
+        $stagiaire->update($request->except('programme_code'));
+
+        if ($request->filled('programme_code')) {
+            $programme = \App\Models\Programme::where('code_diplome', $request->programme_code)->first();
+            if ($programme) {
+                // Assuming sync to replace existing inscriptions or add if none
+                $stagiaire->programmes()->sync([$programme->id]);
+            }
+        }
+        
+        $stagiaire->load([
+            'programmes:id,code_diplome,libelle_long,filiere_id',
+            'programmes.filiere:id,code',
+        ]);
 
         return response()->json([
             'success' => true,
