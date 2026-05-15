@@ -14,7 +14,13 @@ class AttendanceController extends Controller
     public function index(Request $request)
     {
         $perPage = $request->query('per_page', 15);
-        $attendances = Attendance::with(['session', 'stagiaire', 'typeAbsence'])->paginate($perPage);
+        $attendances = Attendance::with([
+            'session',
+            'stagiaire',
+            'typeAbsence',
+            'createdByUser:id,name,email',
+            'updatedByUser:id,name,email'
+        ])->paginate($perPage);
 
         return response()->json([
             'success' => true,
@@ -31,17 +37,21 @@ class AttendanceController extends Controller
             'session_id' => 'required|exists:seances,id',
             'stagiaire_id' => 'required|exists:stagiaires,id',
             'type_absence_id' => 'required|exists:type_absences,id',
+            'status' => 'sometimes|in:non_justifie,justifie,retard,absence_excusee',
             'justification' => 'nullable|string',
             'recorded_by' => 'nullable|string',
         ]);
 
+        // Default status to 'non_justifie' if not provided
+        $validated['status'] = $validated['status'] ?? 'non_justifie';
         $validated['recorded_at'] = now();
 
         $attendance = Attendance::create($validated);
+        $attendance->load(['session', 'stagiaire', 'typeAbsence', 'createdByUser:id,name,email']);
 
         return response()->json([
             'success' => true,
-            'message' => 'Présence enregistrée avec succès',
+            'message' => 'Absence enregistrée avec succès',
             'data' => $attendance,
         ], 201);
     }
@@ -51,7 +61,13 @@ class AttendanceController extends Controller
      */
     public function show(Attendance $attendance)
     {
-        $attendance->load(['session', 'stagiaire', 'typeAbsence']);
+        $attendance->load([
+            'session',
+            'stagiaire',
+            'typeAbsence',
+            'createdByUser:id,name,email',
+            'updatedByUser:id,name,email'
+        ]);
 
         return response()->json([
             'success' => true,
@@ -65,18 +81,30 @@ class AttendanceController extends Controller
     public function update(Request $request, Attendance $attendance)
     {
         $validated = $request->validate([
-            'session_id' => 'sometimes|exists:sessions,id',
+            'session_id' => 'sometimes|exists:seances,id',
             'stagiaire_id' => 'sometimes|exists:stagiaires,id',
             'type_absence_id' => 'sometimes|exists:type_absences,id',
+            'status' => 'sometimes|in:non_justifie,justifie,retard,absence_excusee',
             'justification' => 'nullable|string',
             'recorded_by' => 'nullable|string',
         ]);
 
+        // If status is being changed to 'justifie', set justified_at
+        if (isset($validated['status']) && $validated['status'] === 'justifie' && !$attendance->justified_at) {
+            $validated['justified_at'] = now();
+        }
+
+        // If status is being changed away from 'justifie', clear justified_at
+        if (isset($validated['status']) && $validated['status'] !== 'justifie') {
+            $validated['justified_at'] = null;
+        }
+
         $attendance->update($validated);
+        $attendance->load(['session', 'stagiaire', 'typeAbsence', 'createdByUser:id,name,email', 'updatedByUser:id,name,email']);
 
         return response()->json([
             'success' => true,
-            'message' => 'Présence mise à jour avec succès',
+            'message' => 'Absence mise à jour avec succès',
             'data' => $attendance,
         ]);
     }
@@ -105,6 +133,7 @@ class AttendanceController extends Controller
             'attendances' => 'required|array',
             'attendances.*.stagiaire_id' => 'required|exists:stagiaires,id',
             'attendances.*.type_absence_id' => 'required|exists:type_absences,id',
+            'attendances.*.status' => 'sometimes|in:non_justifie,justifie,retard,absence_excusee',
             'attendances.*.justification' => 'nullable|string',
         ]);
 
@@ -113,6 +142,8 @@ class AttendanceController extends Controller
 
         foreach ($validated['attendances'] as $index => $data) {
             try {
+                $data['status'] = $data['status'] ?? 'non_justifie';
+
                 $attendance = Attendance::updateOrCreate(
                     [
                         'session_id' => $validated['session_id'],
@@ -120,11 +151,13 @@ class AttendanceController extends Controller
                     ],
                     [
                         'type_absence_id' => $data['type_absence_id'],
+                        'status' => $data['status'],
                         'justification' => $data['justification'] ?? null,
                         'recorded_by' => $validated['recorded_by'] ?? null,
                         'recorded_at' => now(),
                     ]
                 );
+                $attendance->load(['session', 'stagiaire', 'typeAbsence', 'createdByUser:id,name,email']);
                 $created[] = $attendance;
             } catch (\Exception $e) {
                 $errors[] = [
@@ -136,7 +169,7 @@ class AttendanceController extends Controller
 
         return response()->json([
             'success' => count($errors) === 0,
-            'message' => count($created) . ' enregistrements créés/mis à jour',
+            'message' => count($created) . ' absences créées/mises à jour',
             'data' => [
                 'created_count' => count($created),
                 'error_count' => count($errors),
@@ -160,15 +193,49 @@ class AttendanceController extends Controller
             ->whereHas('session', function ($q) use ($cutoffDate) {
                 $q->where('date_session', '>=', $cutoffDate);
             })
-            ->with(['session' => function ($q) {
-                $q->with('programme');
-            }, 'stagiaire', 'typeAbsence'])
+            ->with([
+                'session' => function ($q) {
+                    $q->with('programme');
+                },
+                'stagiaire',
+                'typeAbsence',
+                'createdByUser:id,name,email'
+            ])
             ->paginate($perPage);
 
         return response()->json([
             'success' => true,
             'count' => $attendances->total(),
             'data' => $attendances,
+        ]);
+    }
+
+    /**
+     * Update absence status (admin only)
+     */
+    public function updateStatus(Request $request, Attendance $attendance)
+    {
+        $validated = $request->validate([
+            'status' => 'required|in:non_justifie,justifie,retard,absence_excusee',
+        ]);
+
+        // If status is being changed to 'justifie', set justified_at
+        if ($validated['status'] === 'justifie' && !$attendance->justified_at) {
+            $validated['justified_at'] = now();
+        }
+
+        // If status is being changed away from 'justifie', clear justified_at
+        if ($validated['status'] !== 'justifie') {
+            $validated['justified_at'] = null;
+        }
+
+        $attendance->update($validated);
+        $attendance->load(['session', 'stagiaire', 'typeAbsence', 'createdByUser:id,name,email', 'updatedByUser:id,name,email']);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Statut d\'absence mis à jour avec succès',
+            'data' => $attendance,
         ]);
     }
 

@@ -55,6 +55,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // Attendances
     Route::apiResource('attendances', AttendanceController::class);
     Route::post('attendances/bulk', [AttendanceController::class, 'bulk']);
+    Route::patch('attendances/{attendance}/status', [AttendanceController::class, 'updateStatus']);
     Route::get('attendances/unjustified/list', [AttendanceController::class, 'unjustifiedList']);
     Route::get('attendances/stats/by-stagiaire', [AttendanceController::class, 'statsByStagiaire']);
     Route::get('attendances/stats/by-programme', [AttendanceController::class, 'statsByProgramme']);

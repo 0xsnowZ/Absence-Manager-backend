@@ -1,117 +1,191 @@
 ```md
-# Tasks & Improvements Todo List
+# Absence Management Improvements – Tasks
 
-## Navigation
-- [ ] Add a "Retour / Back" button in every page and form step.
-- [ ] Keep navigation history working correctly between pages.
-- [ ] Redirect user to the previous page after save/update when needed.
+## Important
+- The database schema already exists.
+- Only add the required improvements to the existing system.
+- Do NOT recreate the whole absence module.
+
+---
+
+# Tasks
+
+## 1. Track absence creator
+
+When a teacher creates an absence:
+
+- automatically save:
+  - creator user id
+  - creation datetime
+
+Requirements:
+- teacher does not choose the status manually
+- default status = `non_justifie`
+
+Expected behavior:
+- new absence appears directly in red
+- status automatically set from backend
+
+---
+
+## 2. Track absence updates
+
+When an absence is modified:
+
+- save:
+  - updated_by
+  - updated_at
+
+This must work for:
+- administration modifications
+- justification changes
+- status changes
+
+---
+
+## 3. Teacher consultation improvements
+
+When teacher consults absences:
+
+Display:
+- absence status
+- who created the absence
+- creation date/time
+- last modification date/time
+
+Example information:
+- Created by: Admin
+- Created at: 14/05/2026 10:20
+- Status: non_justifie
+
+---
+
+## 4. Administration consultation improvements
+
+Administration must be able to:
+
+- consult all absences
+- see who created them
+- see creation datetime
+- see last update datetime
+- see current status
+
+
+---
+
+## 5. Administration status management
+
+Administration can update absence status:
+
+Possible statuses:
+- non_justifie
+- justifie
+- retard
+- absence_excusee
+
+When status becomes `justifie`:
+- save justification datetime
+- save updated_by
 
 ---
 
 
----
 
-## Teacher Assignment Improvements
-### Assign Secteur + Filière
-Current problem:
-Teacher can teach multiple filières in multiple secteurs.
+## 8. Absence colors in frontend
 
-### Required improvement
-- [ ] First select `Secteur`.
-- [ ] After selecting secteur, load only filières related to this secteur.
-- [ ] Use multi-select for filières.
-- [ ] Add button/icon: "Ajouter une autre filière".
-- [ ] Allow adding another secteur + filière combination dynamically.
-- [ ] Prevent duplicate filière assignments.
-- [ ] Save all selected assignments correctly in database.
+Display colors depending on status:
 
-### Example UI Flow
-1. Select Secteur
-2. Load Filières dropdown dynamically
-3. Select one or multiple Filières
-4. Click "+" to add another Secteur/Filière block
-5. Repeat as needed
+| Status | Color |
+|---|---|
+| non_justifie | Red |
+| justifie | Green |
+| retard | Orange |
+| absence_excusee | Blue |
+
+Important:
+- justified absences must appear in green
 
 ---
 
-## Stagiaire Edit
-### Admin Edit Form
-- [ ] When admin edits a stagiaire, load old data automatically in form fields.
-- [ ] Pre-fill:
-  - nom
-  - prénom
-  - etc.
-- [ ] Keep old values if no new value selected.
+## 9. Default absence behavior
+
+When teacher creates absence:
+- status automatically = `non_justifie`
+- absence cell immediately becomes red
+
+Teacher should NOT manually select the status.
 
 ---
 
-## Confirmation Modals / Prompts
-### Required for ALL actions
-Before executing actions, show confirmation popup/modal.
+## 10. Consultation popup / modal
 
-### Actions requiring confirmation
-- [ ] Delete
-- [ ] Edit
-- [ ] Add
-- [ ] Absence
-- [ ] Update
-- [ ] Remove assignment
-- [ ] Archive
-- [ ] Restore
+When clicking an absence:
 
-### Example Messages
-- "Are you sure you want to delete this item?"
-- "Confirm absence for this stagiaire?"
-- "Save changes?"
+Display:
+- trainee name
+- session
+- date
+- status
+- created by
+- created at
+- updated by
+- updated at
 
 ---
 
-## UX Improvements
-- [ ] Add loading spinner during requests.
-- [ ] Show success toast notifications.
-- [ ] Show error alerts with clear messages.
-- [ ] Disable submit button while request is processing.
-- [ ] Improve responsive design for mobile/tablet.
+## 11. Admin edit popup
+
+Administration can:
+- change status
+- save changes
 
 ---
 
-## Security
-- [ ] Protect routes by role:
-  - Admin
-  - Teacher
-  - Student
-- [ ] Prevent unauthorized access from frontend and backend.
-- [ ] Validate all requests on backend.
+## 12. Permissions
+
+Rules:
+- teacher can create absences
+- teacher can consult absences
+- administration can modify statuses
+- teacher cannot justify absences
+- teacher cannot edit already justified absences
 
 ---
 
-## Backend Checks
-- [ ] Validate teacher assignments before saving.
-- [ ] Ensure filière belongs to selected secteur.
-- [ ] Prevent duplicate records.
-- [ ] Add soft delete if needed.
+## 13. Backend API updates
+
+Update existing endpoints to support:
+- created_by
+- updated_by
+- status management
+- justification upload
+- justification note
 
 ---
 
-## Testing
-- [ ] Test all CRUD operations.
-- [ ] Test role permissions.
-- [ ] Test dynamic filière loading.
-- [ ] Test edit forms with existing data.
-- [ ] Test confirmation prompts.
-- [ ] Test responsive UI.
+## 14. Frontend improvements
+
+Improve absence UI:
+- better colors
+- hover tooltip
+- status badges
+- cleaner consultation modal
+
+Tooltip example:
+- Created by Ahmed
+- 14/05/2026 09:30
+- Status: justifie
 
 ---
 
-## Priority Order
-### High Priority
-- [ ] Role permissions
-- [ ] Edit stagiaire load old data
-- [ ] Confirmation prompts
-- [ ] Dynamic secteur/filière assignment
+# Final Goal
 
-### Medium Priority
-- [ ] UX improvements
-- [ ] Responsive design
-
+The system must allow:
+- complete absence tracking
+- creator tracking
+- modification history
+- justification management
+- administration control
+- visual status colors
+- easier absence consultation
 ```
