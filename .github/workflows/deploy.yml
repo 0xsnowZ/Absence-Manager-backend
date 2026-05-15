@@ -1,0 +1,32 @@
+name: Deploy to EC2
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    name: SSH Deploy
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy to EC2 via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          port: 22
+          script: |
+            cd /var/www/absence-manager
+            git pull origin main
+            composer install --no-dev --optimize-autoloader --no-interaction
+            php artisan migrate --force
+            php artisan config:clear
+            php artisan route:clear
+            php artisan view:clear
+            php artisan config:cache
+            php artisan route:cache
+            php artisan view:cache
+            sudo systemctl reload php8.4-fpm
+            echo "✅ Deployed successfully at $(date)"
