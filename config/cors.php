@@ -22,22 +22,30 @@ return [
     'allowed_origins' => [
         'http://localhost:5173',
         'http://127.0.0.1:5173',
-        env('FRONTEND_URL'),
+        // Set FRONTEND_URL in Railway dashboard → e.g. https://absence-app-one.vercel.app
+        env('FRONTEND_URL', ''),
     ],
 
+    // All patterns must use PCRE delimiters (e.g. #...#) — required by preg_match().
     'allowed_origins_patterns' => [
-        'https://.*\.vercel\.app',
+        // Any *.vercel.app subdomain (covers preview deployments)
+        '#^https://[a-zA-Z0-9\-]+\.vercel\.app$#',
         // Render deploy URLs
-        'https://absence-manager-frontend\.onrender\.com',
-        'https://absence-manager-frontend-.*\.onrender\.com',
+        '#^https://absence-manager-frontend\.onrender\.com$#',
+        '#^https://absence-manager-frontend-[a-zA-Z0-9\-]+\.onrender\.com$#',
     ],
 
     'allowed_headers' => ['*'],
 
     'exposed_headers' => [],
 
-    'max_age' => 0,
+    // Cache preflight for 24 h to reduce OPTIONS round-trips
+    'max_age' => 86400,
 
-    'supports_credentials' => true,
+    // false: we use Bearer token auth (Sanctum token in localStorage).
+    // Setting this true forces the browser to include credentials on every
+    // preflight and requires an exact origin echo — incompatible with patterns.
+    'supports_credentials' => false,
 
 ];
+
