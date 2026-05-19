@@ -26,7 +26,10 @@ return [
     ],
 
     'allowed_origins_patterns' => [
-        'https://abcence-manager-frontend-.*\.vercel\.app',
+        'https://.*\.vercel\.app',
+        // Render deploy URLs
+        'https://absence-manager-frontend\.onrender\.com',
+        'https://absence-manager-frontend-.*\.onrender\.com',
     ],
 
     'allowed_headers' => ['*'],
