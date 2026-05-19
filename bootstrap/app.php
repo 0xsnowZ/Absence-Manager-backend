@@ -12,7 +12,9 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        $middleware->append(\App\Http\Middleware\CorsMiddleware::class);
+        // CorsMiddleware removed: Laravel's built-in CORS (config/cors.php) handles
+        // all origins correctly. The custom middleware was duplicating the
+        // Access-Control-Allow-Origin header and causing browser CORS failures.
         $middleware->statefulApi();
         $middleware->validateCsrfTokens(except: [
             'api/*',
