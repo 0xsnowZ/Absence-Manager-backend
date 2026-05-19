@@ -14,7 +14,7 @@ class StagiaireController extends Controller
         $stagiaires = Stagiaire::with([
             'programmes:id,code_diplome,libelle_long,filiere_id',
             'programmes.filiere:id,code',
-        ])->paginate($perPage);
+        ])->orderBy('nom')->orderBy('prenom')->paginate($perPage);
 
         return response()->json([
             'success' => true,
