@@ -59,6 +59,11 @@ class StagiaireController extends Controller
 
     public function show(Stagiaire $stagiaire)
     {
+        $stagiaire->load([
+            'programmes:id,code_diplome,libelle_long,filiere_id',
+            'programmes.filiere:id,code',
+        ]);
+
         return response()->json([
             'success' => true,
             'data'    => $stagiaire,
