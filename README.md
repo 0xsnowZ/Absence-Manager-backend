@@ -1,58 +1,230 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+<div align="center">
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+# 🎓 Absence Manager — Backend API
 
-## About Laravel
+**REST API powering the ISTA Inezgane Absence Management Platform**
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+[![Laravel](https://img.shields.io/badge/Laravel-11.x-FF2D20?style=for-the-badge&logo=laravel&logoColor=white)](https://laravel.com)
+[![PHP](https://img.shields.io/badge/PHP-8.3-777BB4?style=for-the-badge&logo=php&logoColor=white)](https://php.net)
+[![SQLite](https://img.shields.io/badge/SQLite-003B57?style=for-the-badge&logo=sqlite&logoColor=white)](https://sqlite.org)
+[![Railway](https://img.shields.io/badge/Deployed_on-Railway-0B0D0E?style=for-the-badge&logo=railway&logoColor=white)](https://railway.app)
+[![License](https://img.shields.io/badge/License-MIT-22c55e?style=for-the-badge)](LICENSE)
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+[**Live API**](https://web-production-09c0f.up.railway.app/api) · [**Frontend Repo**](https://github.com/0xsnowZ/Absence-Manager-frontend) · [**Report Bug**](https://github.com/0xsnowZ/Absence-Manager-backend/issues)
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+</div>
 
-## Learning Laravel
+---
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+## 📋 Table of Contents
 
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+- [Overview](#-overview)
+- [Tech Stack](#-tech-stack)
+- [Architecture](#-architecture)
+- [API Reference](#-api-reference)
+- [Getting Started](#-getting-started)
+- [Environment Variables](#-environment-variables)
+- [Database Schema](#-database-schema)
+- [Deployment](#-deployment)
+- [Roadmap](#-roadmap)
 
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
+---
 
-## Agentic Development
+## 🌟 Overview
 
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
+The **Absence Manager Backend** is a RESTful API built with Laravel 11 for **ISTA Inezgane** (Institut Spécialisé de Technologie Appliquée), part of the OFPPT network. It handles:
 
-```bash
-composer require laravel/boost --dev
+- 🔐 Token-based authentication (Laravel Sanctum)
+- 👥 Stagiaire & programme management
+- 📅 Session-based attendance recording
+- 📊 Real-time absence statistics
+- 📁 Bulk Excel import for stagiaires
+- 🌍 CORS-secured cross-origin access for the Vercel frontend
 
-php artisan boost:install
+---
+
+## 🛠 Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Framework | Laravel 11 |
+| Language | PHP 8.3 |
+| Auth | Laravel Sanctum (Bearer token) |
+| Database | SQLite (production) |
+| Deployment | Railway + Nixpacks |
+| API Style | RESTful JSON |
+
+---
+
+## 🏗 Architecture
+
+```
+┌─────────────────────────────────────────────────┐
+│               React Frontend (Vercel)           │
+│         https://absence-app-one.vercel.app      │
+└───────────────────┬─────────────────────────────┘
+                    │ HTTPS + Bearer Token
+                    ▼
+┌─────────────────────────────────────────────────┐
+│           Laravel 11 API (Railway)              │
+│    https://web-production-09c0f.up.railway.app  │
+├─────────────────────────────────────────────────┤
+│  Auth  │  Stagiaires  │  Sessions  │  Absences  │
+├─────────────────────────────────────────────────┤
+│              SQLite Database                    │
+└─────────────────────────────────────────────────┘
 ```
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
+---
 
-## Contributing
+## 📡 API Reference
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+### Authentication
+| Method | Endpoint | Description |
+|---|---|---|
+| `POST` | `/api/login` | Login → returns Bearer token |
+| `DELETE` | `/api/logout` | Revoke current token |
+| `GET` | `/api/me` | Get authenticated user |
 
-## Code of Conduct
+### Stagiaires
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/api/stagiaires` | List all stagiaires (paginated) |
+| `POST` | `/api/stagiaires` | Create a stagiaire |
+| `PUT` | `/api/stagiaires/{id}` | Update a stagiaire |
+| `DELETE` | `/api/stagiaires/{id}` | Delete a stagiaire |
+| `POST` | `/api/stagiaires/upsert-from-excel` | Bulk import from Excel |
+| `GET` | `/api/stagiaires/{id}/attendance-stats` | Per-stagiaire stats |
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+### Sessions & Attendances
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/api/sessions` | List sessions |
+| `POST` | `/api/attendances/bulk` | Record attendance for a full session |
+| `PATCH` | `/api/attendances/{id}/status` | Update justification status |
+| `GET` | `/api/attendances/stats/by-stagiaire` | Stats grouped by stagiaire |
+| `GET` | `/api/attendances/stats/by-programme` | Stats grouped by programme |
 
-## Security Vulnerabilities
+> All routes except `/api/login` require `Authorization: Bearer {token}` header.
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+---
 
-## License
+## 🚀 Getting Started
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+### Prerequisites
+- PHP 8.3+
+- Composer 2.x
+
+### Installation
+
+```bash
+# 1. Clone the repository
+git clone https://github.com/0xsnowZ/Absence-Manager-backend.git
+cd Absence-Manager-backend
+
+# 2. Install dependencies
+composer install
+
+# 3. Copy environment file
+cp .env.example .env
+
+# 4. Generate application key
+php artisan key:generate
+
+# 5. Create the SQLite database
+touch database/database.sqlite
+
+# 6. Run migrations + seed
+php artisan migrate --seed
+
+# 7. Start the development server
+php artisan serve
+```
+
+The API will be available at `http://localhost:8000/api`.
+
+**Default admin credentials (from seeder):**
+```
+Email:    admin@school.ma
+Password: password
+```
+
+---
+
+## ⚙️ Environment Variables
+
+| Variable | Required | Description |
+|---|---|---|
+| `APP_KEY` | ✅ | Laravel encryption key |
+| `APP_ENV` | ✅ | `local` / `production` |
+| `APP_URL` | ✅ | Full URL of the backend |
+| `DB_CONNECTION` | ✅ | `sqlite` |
+| `FRONTEND_URL` | ✅ | Frontend URL (used by CORS) |
+| `SESSION_DRIVER` | — | Use `file` in production |
+| `CACHE_STORE` | — | Use `file` in production |
+
+---
+
+## 🗄 Database Schema
+
+```
+users          → id, name, email, password, role
+stagiaires     → id, matricule, nom, prenom, sexe, cin, telephone
+programmes     → id, code_diplome, libelle_long, filiere_id
+filieres       → id, code, libelle
+seances        → id, programme_id, time_block_id, date_session
+attendances    → id, stagiaire_id, session_id, type_absence_id, status, justification
+type_absences  → id, code (PRESENT/ABSENT/RETARD), libelle
+time_blocks    → id, code (TB1–TB4), heure_debut, heure_fin
+```
+
+---
+
+## 🚂 Deployment (Railway)
+
+The project auto-deploys to Railway on every push to `main`. The deployment is configured via:
+
+| File | Purpose |
+|---|---|
+| `railway.toml` | Builder config, start command, health check |
+| `nixpacks.toml` | PHP 8.3 + extensions installation |
+| `start.sh` | Migrate → seed → serve on `$PORT` |
+
+Railway environment variables to set:
+
+```env
+APP_ENV=production
+APP_KEY=base64:...
+APP_URL=https://your-app.up.railway.app
+FRONTEND_URL=https://your-frontend.vercel.app
+DB_CONNECTION=sqlite
+SESSION_DRIVER=file
+CACHE_STORE=file
+```
+
+---
+
+## 🗺 Roadmap
+
+- [x] Bearer token authentication (Sanctum)
+- [x] Full CRUD for stagiaires, programmes, sessions
+- [x] Bulk attendance recording
+- [x] Excel import for stagiaires
+- [x] CORS support for Vercel frontend
+- [ ] Email/SMS notifications on absence threshold
+- [ ] Justification document upload & approval workflow
+- [ ] QR code attendance recording
+- [ ] Multi-établissement (multi-tenant) support
+- [ ] Arabic RTL support
+
+---
+
+## 👨‍💻 Author
+
+**elgarouani** — ISTA Inezgane · OFPPT
+
+---
+
+<div align="center">
+  <sub>Built with ❤️ for ISTA Inezgane · <a href="https://github.com/0xsnowZ/Absence-Manager-backend">GitHub</a></sub>
+</div>
