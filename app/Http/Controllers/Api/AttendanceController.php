@@ -15,7 +15,7 @@ class AttendanceController extends Controller
     {
         $perPage = $request->query('per_page', 15);
         $attendances = Attendance::with([
-            'session',
+            'session.timeBlock',
             'stagiaire',
             'typeAbsence',
             'createdByUser:id,name,email',
@@ -47,7 +47,7 @@ class AttendanceController extends Controller
         $validated['recorded_at'] = now();
 
         $attendance = Attendance::create($validated);
-        $attendance->load(['session', 'stagiaire', 'typeAbsence', 'createdByUser:id,name,email']);
+        $attendance->load(['session.timeBlock', 'stagiaire', 'typeAbsence', 'createdByUser:id,name,email']);
 
         return response()->json([
             'success' => true,
@@ -62,7 +62,7 @@ class AttendanceController extends Controller
     public function show(Attendance $attendance)
     {
         $attendance->load([
-            'session',
+            'session.timeBlock',
             'stagiaire',
             'typeAbsence',
             'createdByUser:id,name,email',
@@ -100,7 +100,7 @@ class AttendanceController extends Controller
         }
 
         $attendance->update($validated);
-        $attendance->load(['session', 'stagiaire', 'typeAbsence', 'createdByUser:id,name,email', 'updatedByUser:id,name,email']);
+        $attendance->load(['session.timeBlock', 'stagiaire', 'typeAbsence', 'createdByUser:id,name,email', 'updatedByUser:id,name,email']);
 
         return response()->json([
             'success' => true,
@@ -157,7 +157,7 @@ class AttendanceController extends Controller
                         'recorded_at' => now(),
                     ]
                 );
-                $attendance->load(['session', 'stagiaire', 'typeAbsence', 'createdByUser:id,name,email']);
+                $attendance->load(['session.timeBlock', 'stagiaire', 'typeAbsence', 'createdByUser:id,name,email']);
                 $created[] = $attendance;
             } catch (\Exception $e) {
                 $errors[] = [
@@ -195,7 +195,7 @@ class AttendanceController extends Controller
             })
             ->with([
                 'session' => function ($q) {
-                    $q->with('programme');
+                    $q->with(['programme', 'timeBlock']);
                 },
                 'stagiaire',
                 'typeAbsence',
@@ -247,7 +247,7 @@ class AttendanceController extends Controller
         $programmeId = $request->query('programme_id');
         $saison = $request->query('saison');
 
-        $query = Attendance::with(['stagiaire', 'typeAbsence', 'session']);
+        $query = Attendance::with(['stagiaire', 'typeAbsence', 'session.timeBlock']);
 
         if ($programmeId) {
             $query->whereHas('session', function ($q) use ($programmeId) {
@@ -296,7 +296,7 @@ class AttendanceController extends Controller
     {
         $saison = $request->query('saison');
 
-        $query = Attendance::with(['session', 'typeAbsence'])
+        $query = Attendance::with(['session.timeBlock', 'typeAbsence'])
             ->whereHas('session');
 
         $attendances = $query->get();
