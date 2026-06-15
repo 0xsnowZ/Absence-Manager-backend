@@ -193,7 +193,7 @@ class StagiaireController extends Controller
                 unset($data['code_diplome'], $data['date_inscription'], $data['date_dossier_complet']);
 
                 // Nullify empty strings or invalid date-like values
-                foreach (['date_naissance', 'date_inscription', 'date_dossier_complet'] as $f) {
+                foreach (['date_naissance'] as $f) {
                     if (isset($data[$f]) && ($data[$f] === '' || $data[$f] === 'null' || $data[$f] === 'Invalid Date')) {
                         $data[$f] = null;
                     }
@@ -208,16 +208,6 @@ class StagiaireController extends Controller
                     $programme = \App\Models\Programme::where('code_diplome', $codeDiplome)->first();
                     if ($programme) {
                         $stagiaire->programmes()->syncWithoutDetaching([$programme->id]);
-
-                        // Sync inscription dates if provided
-                        $pivotData = [];
-                        if ($dateInscription) $pivotData['date_inscription'] = $dateInscription;
-                        if ($dateDossierComplet) $pivotData['date_dossier_complet'] = $dateDossierComplet;
-                        if (!empty($pivotData)) {
-                            $stagiaire->inscriptions()
-                                ->where('classe_id', $programme->id)
-                                ->update($pivotData);
-                        }
                     }
                 }
 
@@ -232,5 +222,79 @@ class StagiaireController extends Controller
             'message' => "Upsert complété: $created créés, $updated mis à jour, $errors erreurs",
             'data'    => ['created' => $created, 'updated' => $updated, 'errors' => $errors],
         ]);
+    }
+
+    public function importReplace(Request $request)
+    {
+        $stagiaires = $request->input('stagiaires', []);
+
+        if (!is_array($stagiaires) || empty($stagiaires)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Aucune donnée reçue.',
+            ], 422);
+        }
+
+        \DB::beginTransaction();
+        try {
+            // Clear all stagiaire-related data
+            \App\Models\Attendance::query()->delete();
+            \App\Models\Inscription::query()->delete();
+            Stagiaire::query()->delete();
+
+            $imported = 0;
+            $errors = 0;
+
+            foreach ($stagiaires as $data) {
+                try {
+                    if (!isset($data['matricule']) || !isset($data['nom']) || !isset($data['prenom'])) {
+                        $errors++;
+                        continue;
+                    }
+
+                    $codeDiplome = $data['code_diplome'] ?? null;
+                    $dateInscription = $data['date_inscription'] ?? null;
+                    $dateDossierComplet = $data['date_dossier_complet'] ?? null;
+
+                    unset($data['code_diplome'], $data['date_inscription'], $data['date_dossier_complet']);
+
+                    foreach (['date_naissance'] as $f) {
+                        if (isset($data[$f]) && ($data[$f] === '' || $data[$f] === 'null' || $data[$f] === 'Invalid Date')) {
+                            $data[$f] = null;
+                        }
+                    }
+
+                    $stagiaire = Stagiaire::create($data);
+
+                    if ($codeDiplome) {
+                        $programme = \App\Models\Programme::where('code_diplome', $codeDiplome)->first();
+                        if ($programme) {
+                            $pivotData = [];
+                            if ($dateInscription) $pivotData['date_inscription'] = $dateInscription;
+                            if ($dateDossierComplet) $pivotData['date_dossier_complet'] = $dateDossierComplet;
+                            $stagiaire->programmes()->attach($programme->id, $pivotData);
+                        }
+                    }
+
+                    $imported++;
+                } catch (\Exception $e) {
+                    $errors++;
+                }
+            }
+
+            \DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => "Remplacement terminé: $imported importés, $errors erreurs",
+                'data'    => ['imported' => $imported, 'errors' => $errors],
+            ]);
+        } catch (\Exception $e) {
+            \DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors du remplacement: ' . $e->getMessage(),
+            ], 500);
+        }
     }
 }
