@@ -167,6 +167,7 @@ class StagiaireController extends Controller
     public function upsertFromExcel(Request $request)
     {
         $stagiaires = $request->input('stagiaires', []);
+        $replace = $request->boolean('replace', false);
 
         if (!is_array($stagiaires) || empty($stagiaires)) {
             return response()->json([
@@ -175,8 +176,20 @@ class StagiaireController extends Controller
             ], 422);
         }
 
-        $created = 0;
-        $updated = 0;
+        if ($replace) {
+            \DB::beginTransaction();
+            try {
+                \App\Models\Attendance::query()->delete();
+                \App\Models\Inscription::query()->delete();
+                Stagiaire::query()->delete();
+            } catch (\Exception $e) {
+                \DB::rollBack();
+                return response()->json(['success' => false, 'message' => 'Erreur lors du nettoyage: ' . $e->getMessage()], 500);
+            }
+            \DB::commit();
+        }
+
+        $imported = 0;
         $errors  = 0;
 
         foreach ($stagiaires as $data) {
@@ -192,80 +205,14 @@ class StagiaireController extends Controller
 
                 unset($data['code_diplome'], $data['date_inscription'], $data['date_dossier_complet']);
 
-                // Nullify empty strings or invalid date-like values
                 foreach (['date_naissance'] as $f) {
                     if (isset($data[$f]) && ($data[$f] === '' || $data[$f] === 'null' || $data[$f] === 'Invalid Date')) {
                         $data[$f] = null;
                     }
                 }
 
-                $stagiaire = Stagiaire::updateOrCreate(
-                    ['matricule' => $data['matricule']],
-                    $data
-                );
-
-                if ($codeDiplome) {
-                    $programme = \App\Models\Programme::where('code_diplome', $codeDiplome)->first();
-                    if ($programme) {
-                        $stagiaire->programmes()->syncWithoutDetaching([$programme->id]);
-                    }
-                }
-
-                $stagiaire->wasRecentlyCreated ? $created++ : $updated++;
-            } catch (\Exception $e) {
-                $errors++;
-            }
-        }
-
-        return response()->json([
-            'success' => true,
-            'message' => "Upsert complété: $created créés, $updated mis à jour, $errors erreurs",
-            'data'    => ['created' => $created, 'updated' => $updated, 'errors' => $errors],
-        ]);
-    }
-
-    public function importReplace(Request $request)
-    {
-        $stagiaires = $request->input('stagiaires', []);
-
-        if (!is_array($stagiaires) || empty($stagiaires)) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Aucune donnée reçue.',
-            ], 422);
-        }
-
-        \DB::beginTransaction();
-        try {
-            // Clear all stagiaire-related data
-            \App\Models\Attendance::query()->delete();
-            \App\Models\Inscription::query()->delete();
-            Stagiaire::query()->delete();
-
-            $imported = 0;
-            $errors = 0;
-
-            foreach ($stagiaires as $data) {
-                try {
-                    if (!isset($data['matricule']) || !isset($data['nom']) || !isset($data['prenom'])) {
-                        $errors++;
-                        continue;
-                    }
-
-                    $codeDiplome = $data['code_diplome'] ?? null;
-                    $dateInscription = $data['date_inscription'] ?? null;
-                    $dateDossierComplet = $data['date_dossier_complet'] ?? null;
-
-                    unset($data['code_diplome'], $data['date_inscription'], $data['date_dossier_complet']);
-
-                    foreach (['date_naissance'] as $f) {
-                        if (isset($data[$f]) && ($data[$f] === '' || $data[$f] === 'null' || $data[$f] === 'Invalid Date')) {
-                            $data[$f] = null;
-                        }
-                    }
-
+                if ($replace) {
                     $stagiaire = Stagiaire::create($data);
-
                     if ($codeDiplome) {
                         $programme = \App\Models\Programme::where('code_diplome', $codeDiplome)->first();
                         if ($programme) {
@@ -275,26 +222,35 @@ class StagiaireController extends Controller
                             $stagiaire->programmes()->attach($programme->id, $pivotData);
                         }
                     }
-
-                    $imported++;
-                } catch (\Exception $e) {
-                    $errors++;
+                } else {
+                    Stagiaire::updateOrCreate(
+                        ['matricule' => $data['matricule']],
+                        $data
+                    );
+                    if ($codeDiplome) {
+                        $programme = \App\Models\Programme::where('code_diplome', $codeDiplome)->first();
+                        if ($programme) {
+                            $stagiaire->programmes()->syncWithoutDetaching([$programme->id]);
+                        }
+                    }
                 }
+
+                $imported++;
+            } catch (\Exception $e) {
+                $errors++;
             }
-
-            \DB::commit();
-
-            return response()->json([
-                'success' => true,
-                'message' => "Remplacement terminé: $imported importés, $errors erreurs",
-                'data'    => ['imported' => $imported, 'errors' => $errors],
-            ]);
-        } catch (\Exception $e) {
-            \DB::rollBack();
-            return response()->json([
-                'success' => false,
-                'message' => 'Erreur lors du remplacement: ' . $e->getMessage(),
-            ], 500);
         }
+
+        $msg = $replace
+            ? "Remplacement terminé: $imported importés, $errors erreurs"
+            : "Upsert complété: $imported importés, $errors erreurs";
+
+        return response()->json([
+            'success' => true,
+            'message' => $msg,
+            'data'    => $replace
+                ? ['imported' => $imported, 'errors' => $errors]
+                : ['created' => $imported, 'updated' => 0, 'errors' => $errors],
+        ]);
     }
 }
