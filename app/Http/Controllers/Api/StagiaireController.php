@@ -167,15 +167,18 @@ class StagiaireController extends Controller
     public function upsertFromExcel(Request $request)
     {
         $validated = $request->validate([
-            'stagiaires'                   => 'required|array',
-            'stagiaires.*.matricule'       => 'required|numeric',
-            'stagiaires.*.nom'             => 'required|string',
-            'stagiaires.*.prenom'          => 'required|string',
-            'stagiaires.*.sexe'            => 'nullable|string',
-            'stagiaires.*.date_naissance'  => 'nullable|date',
-            'stagiaires.*.lieu_naissance'  => 'nullable|string',
-            'stagiaires.*.cin'             => 'nullable|string',
-            'stagiaires.*.telephone'       => 'nullable|string',
+            'stagiaires'                     => 'required|array',
+            'stagiaires.*.matricule'         => 'required|numeric',
+            'stagiaires.*.nom'               => 'required|string',
+            'stagiaires.*.prenom'            => 'required|string',
+            'stagiaires.*.sexe'              => 'nullable|string',
+            'stagiaires.*.date_naissance'    => 'nullable|date',
+            'stagiaires.*.lieu_naissance'    => 'nullable|string',
+            'stagiaires.*.cin'               => 'nullable|string',
+            'stagiaires.*.telephone'         => 'nullable|string',
+            'stagiaires.*.code_diplome'      => 'nullable|string',
+            'stagiaires.*.date_inscription'  => 'nullable|date',
+            'stagiaires.*.date_dossier_complet' => 'nullable|date',
         ]);
 
         $created = 0;
@@ -184,10 +187,24 @@ class StagiaireController extends Controller
 
         foreach ($validated['stagiaires'] as $data) {
             try {
+                $codeDiplome = $data['code_diplome'] ?? null;
+                $dateInscription = $data['date_inscription'] ?? null;
+                $dateDossierComplet = $data['date_dossier_complet'] ?? null;
+
+                unset($data['code_diplome'], $data['date_inscription'], $data['date_dossier_complet']);
+
                 $stagiaire = Stagiaire::updateOrCreate(
                     ['matricule' => $data['matricule']],
                     $data
                 );
+
+                if ($codeDiplome) {
+                    $programme = \App\Models\Programme::where('code_diplome', $codeDiplome)->first();
+                    if ($programme) {
+                        $stagiaire->programmes()->syncWithoutDetaching([$programme->id]);
+                    }
+                }
+
                 $stagiaire->wasRecentlyCreated ? $created++ : $updated++;
             } catch (\Exception) {
                 $errors++;
