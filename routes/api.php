@@ -31,12 +31,13 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('secteurs/{secteur}/filieres', [SecteurController::class, 'filieres']);
     Route::get('secteurs/{secteur}/programmes', [SecteurController::class, 'programmes']);
 
-    // Stagiaires — custom routes BEFORE apiResource to avoid {stagiaire} catch-all
+    // Stagiaires
+    Route::apiResource('stagiaires', StagiaireController::class);
     Route::get('stagiaires/{stagiaire}/programmes', [StagiaireController::class, 'programmes']);
     Route::get('stagiaires/{stagiaire}/attendance-stats', [StagiaireController::class, 'attendanceStats']);
     Route::post('stagiaires/upsert-from-excel', [StagiaireController::class, 'upsertFromExcel']);
-    Route::post('stagiaires/import-replace', [StagiaireController::class, 'importReplace']);
-    Route::apiResource('stagiaires', StagiaireController::class);
+    // import-replace must be outside stagiaires/ prefix to avoid {stagiaire} catch-all
+    Route::post('import-stagiaires/replace', [StagiaireController::class, 'importReplace']);
 
     // Programmes
     Route::apiResource('programmes', ProgrammeController::class);
