@@ -166,37 +166,36 @@ class StagiaireController extends Controller
 
     public function upsertFromExcel(Request $request)
     {
-        $validated = $request->validate([
-            'stagiaires'                     => 'required|array',
-            'stagiaires.*.matricule'         => 'required|numeric',
-            'stagiaires.*.nom'               => 'required|string',
-            'stagiaires.*.prenom'            => 'required|string',
-            'stagiaires.*.sexe'              => 'nullable|string',
-            'stagiaires.*.date_naissance'    => 'nullable|string',
-            'stagiaires.*.lieu_naissance'    => 'nullable|string',
-            'stagiaires.*.cin'               => 'nullable|string',
-            'stagiaires.*.telephone'         => 'nullable|string',
-            'stagiaires.*.code_diplome'      => 'nullable|string',
-            'stagiaires.*.date_inscription'  => 'nullable|string',
-            'stagiaires.*.date_dossier_complet' => 'nullable|string',
-        ]);
+        $stagiaires = $request->input('stagiaires', []);
+
+        if (!is_array($stagiaires) || empty($stagiaires)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Aucune donnée reçue.',
+            ], 422);
+        }
 
         $created = 0;
         $updated = 0;
         $errors  = 0;
 
-        foreach ($validated['stagiaires'] as $data) {
+        foreach ($stagiaires as $data) {
             try {
+                if (!isset($data['matricule']) || !isset($data['nom']) || !isset($data['prenom'])) {
+                    $errors++;
+                    continue;
+                }
+
                 $codeDiplome = $data['code_diplome'] ?? null;
                 $dateInscription = $data['date_inscription'] ?? null;
                 $dateDossierComplet = $data['date_dossier_complet'] ?? null;
 
                 unset($data['code_diplome'], $data['date_inscription'], $data['date_dossier_complet']);
 
-                // Normalize empty date strings so they save as null
-                foreach (['date_naissance'] as $dateField) {
-                    if (isset($data[$dateField]) && ($data[$dateField] === '' || $data[$dateField] === 'null' || $data[$dateField] === 'Invalid Date')) {
-                        $data[$dateField] = null;
+                // Nullify empty strings or invalid date-like values
+                foreach (['date_naissance', 'date_inscription', 'date_dossier_complet'] as $f) {
+                    if (isset($data[$f]) && ($data[$f] === '' || $data[$f] === 'null' || $data[$f] === 'Invalid Date')) {
+                        $data[$f] = null;
                     }
                 }
 
@@ -209,18 +208,12 @@ class StagiaireController extends Controller
                     $programme = \App\Models\Programme::where('code_diplome', $codeDiplome)->first();
                     if ($programme) {
                         $stagiaire->programmes()->syncWithoutDetaching([$programme->id]);
-                    }
-                }
 
-                // Sync inscription dates if provided
-                if ($dateInscription || $dateDossierComplet) {
-                    $pivotData = [];
-                    if ($dateInscription) $pivotData['date_inscription'] = $dateInscription;
-                    if ($dateDossierComplet) $pivotData['date_dossier_complet'] = $dateDossierComplet;
-                    // Update the inscription pivot if a programme was synced
-                    if ($codeDiplome) {
-                        $programme = \App\Models\Programme::where('code_diplome', $codeDiplome)->first();
-                        if ($programme) {
+                        // Sync inscription dates if provided
+                        $pivotData = [];
+                        if ($dateInscription) $pivotData['date_inscription'] = $dateInscription;
+                        if ($dateDossierComplet) $pivotData['date_dossier_complet'] = $dateDossierComplet;
+                        if (!empty($pivotData)) {
                             $stagiaire->inscriptions()
                                 ->where('classe_id', $programme->id)
                                 ->update($pivotData);
@@ -229,7 +222,7 @@ class StagiaireController extends Controller
                 }
 
                 $stagiaire->wasRecentlyCreated ? $created++ : $updated++;
-            } catch (\Exception) {
+            } catch (\Exception $e) {
                 $errors++;
             }
         }
