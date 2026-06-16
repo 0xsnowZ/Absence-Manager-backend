@@ -167,7 +167,63 @@ class StagiaireController extends Controller
     public function upsertFromExcel(Request $request)
     {
         $stagiaires = $request->input('stagiaires', []);
-        $replace = $request->input('replace') === true || $request->input('replace') === 'true';
+
+        if (!is_array($stagiaires) || empty($stagiaires)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Aucune donnée reçue.',
+            ], 422);
+        }
+
+        $created = 0;
+        $updated = 0;
+        $errors  = 0;
+
+        foreach ($stagiaires as $data) {
+            try {
+                if (!isset($data['matricule']) || !isset($data['nom']) || !isset($data['prenom'])) {
+                    $errors++;
+                    continue;
+                }
+
+                $codeDiplome = $data['code_diplome'] ?? null;
+
+                unset($data['code_diplome'], $data['date_inscription'], $data['date_dossier_complet']);
+
+                foreach (['date_naissance'] as $f) {
+                    if (isset($data[$f]) && ($data[$f] === '' || $data[$f] === 'null' || $data[$f] === 'Invalid Date')) {
+                        $data[$f] = null;
+                    }
+                }
+
+                $stagiaire = Stagiaire::updateOrCreate(
+                    ['matricule' => $data['matricule']],
+                    $data
+                );
+
+                if ($codeDiplome) {
+                    $programme = \App\Models\Programme::where('code_diplome', $codeDiplome)->first();
+                    if ($programme) {
+                        $stagiaire->programmes()->syncWithoutDetaching([$programme->id]);
+                    }
+                }
+
+                $stagiaire->wasRecentlyCreated ? $created++ : $updated++;
+            } catch (\Exception $e) {
+                $errors++;
+            }
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => "Upsert complété: $created créés, $updated mis à jour, $errors erreurs",
+            'data'    => ['created' => $created, 'updated' => $updated, 'errors' => $errors],
+        ]);
+    }
+
+    public function importReplace(Request $request)
+    {
+        $stagiaires = $request->input('stagiaires', []);
 
         if (!is_array($stagiaires) || empty($stagiaires)) {
             return response()->json([
@@ -178,14 +234,12 @@ class StagiaireController extends Controller
 
         \DB::beginTransaction();
         try {
-            if ($replace) {
-                \App\Models\Attendance::query()->delete();
-                \App\Models\Inscription::query()->delete();
-                Stagiaire::query()->delete();
-            }
+            \App\Models\Attendance::query()->delete();
+            \App\Models\Inscription::query()->delete();
+            Stagiaire::query()->delete();
 
             $imported = 0;
-            $errors  = 0;
+            $errors = 0;
 
             foreach ($stagiaires as $data) {
                 try {
@@ -206,27 +260,15 @@ class StagiaireController extends Controller
                         }
                     }
 
-                    if ($replace) {
-                        $stagiaire = Stagiaire::create($data);
-                        if ($codeDiplome) {
-                            $programme = \App\Models\Programme::where('code_diplome', $codeDiplome)->first();
-                            if ($programme) {
-                                $pivotData = [];
-                                if ($dateInscription) $pivotData['date_inscription'] = $dateInscription;
-                                if ($dateDossierComplet) $pivotData['date_dossier_complet'] = $dateDossierComplet;
-                                $stagiaire->programmes()->attach($programme->id, $pivotData);
-                            }
-                        }
-                    } else {
-                        $stagiaire = Stagiaire::updateOrCreate(
-                            ['matricule' => $data['matricule']],
-                            $data
-                        );
-                        if ($codeDiplome) {
-                            $programme = \App\Models\Programme::where('code_diplome', $codeDiplome)->first();
-                            if ($programme) {
-                                $stagiaire->programmes()->syncWithoutDetaching([$programme->id]);
-                            }
+                    $stagiaire = Stagiaire::create($data);
+
+                    if ($codeDiplome) {
+                        $programme = \App\Models\Programme::where('code_diplome', $codeDiplome)->first();
+                        if ($programme) {
+                            $pivotData = [];
+                            if ($dateInscription) $pivotData['date_inscription'] = $dateInscription;
+                            if ($dateDossierComplet) $pivotData['date_dossier_complet'] = $dateDossierComplet;
+                            $stagiaire->programmes()->attach($programme->id, $pivotData);
                         }
                     }
 
@@ -238,22 +280,16 @@ class StagiaireController extends Controller
 
             \DB::commit();
 
-            $msg = $replace
-                ? "Remplacement terminé: $imported importés, $errors erreurs"
-                : "Upsert complété: $imported importés, $errors erreurs";
-
             return response()->json([
                 'success' => true,
-                'message' => $msg,
-                'data'    => $replace
-                    ? ['imported' => $imported, 'errors' => $errors]
-                    : ['created' => $imported, 'updated' => 0, 'errors' => $errors],
+                'message' => "Remplacement terminé: $imported importés, $errors erreurs",
+                'data'    => ['imported' => $imported, 'errors' => $errors],
             ]);
         } catch (\Exception $e) {
             \DB::rollBack();
             return response()->json([
                 'success' => false,
-                'message' => 'Erreur: ' . $e->getMessage(),
+                'message' => 'Erreur lors du remplacement: ' . $e->getMessage(),
             ], 500);
         }
     }

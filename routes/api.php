@@ -32,6 +32,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('secteurs/{secteur}/programmes', [SecteurController::class, 'programmes']);
 
     // Stagiaires
+    Route::post('stagiaires/import-replace', [StagiaireController::class, 'importReplace']);
     Route::apiResource('stagiaires', StagiaireController::class);
     Route::get('stagiaires/{stagiaire}/programmes', [StagiaireController::class, 'programmes']);
     Route::get('stagiaires/{stagiaire}/attendance-stats', [StagiaireController::class, 'attendanceStats']);
