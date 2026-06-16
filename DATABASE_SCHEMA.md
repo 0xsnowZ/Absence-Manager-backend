@@ -192,16 +192,30 @@ Relations:
 - `session_id`: BIGINT UNSIGNED FK -> `seances(id)`
 - `stagiaire_id`: BIGINT UNSIGNED FK -> `stagiaires(id)`
 - `type_absence_id`: BIGINT UNSIGNED FK -> `type_absences(id)`
+- `status`: enum(`non_justifie`, `justifie`, `retard`, `absence_excusee`), default `non_justifie`
+- `created_by_user_id`: BIGINT UNSIGNED FK -> `users(id)`, nullable — set automatically on creation
+- `updated_by_user_id`: BIGINT UNSIGNED FK -> `users(id)`, nullable — set automatically on each update
 - `justification`: text, nullable
+- `justified_at`: datetime, nullable — set when status is changed to `justifie`, cleared otherwise
 - `recorded_by`: string, nullable
 - `recorded_at`: datetime, nullable
 - `created_at`, `updated_at`
 - unique(`session_id`, `stagiaire_id`)
 
+Status values:
+| Value | Meaning | Display color |
+|---|---|---|
+| `non_justifie` | Unjustified absence | Red |
+| `justifie` | Justified absence | Green |
+| `retard` | Late / tardy | Orange |
+| `absence_excusee` | Excused absence | Blue |
+
 Relations:
 - `attendances` belongsTo `seances`
 - `attendances` belongsTo `stagiaires`
 - `attendances` belongsTo `type_absences`
+- `attendances` belongsTo `users` (via `created_by_user_id`) — the teacher/admin who created the record
+- `attendances` belongsTo `users` (via `updated_by_user_id`) — the user who last updated the record
 
 ---
 
